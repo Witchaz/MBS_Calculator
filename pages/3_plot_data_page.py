@@ -24,6 +24,13 @@ round_selected = st.selectbox(
 
 
 df_round = df[df["Round"] == round_selected].copy()
+# # ===== เลือกตลาด =====
+# market_selected = st.selectbox(
+#     "Select Market",
+#     sorted(df_round["market_id"].unique())
+# )
+
+# df_round = df_round[df_round["market_id"] == market_selected].copy()
 
 # =========================
 # SIDEBAR FILTER SECTION
@@ -131,9 +138,9 @@ fig = px.scatter_3d(
     x="Price",
     y="Product quality",
     z="Product image",
-    color="Market share",  # ใช้ market share เป็นสี
-    size="Sales volume",   # ใช้ยอดขายเป็นขนาดจุด
-    hover_name="Company",     # แสดงชื่อทีมตอน hover
+    color="market_id",        # แยกสีตามตลาด
+    size="Sales volume",
+    hover_name="Company",
 )
 
 fig.update_layout(
@@ -149,7 +156,50 @@ st.plotly_chart(fig, use_container_width=True)
 
 
 # =========================
-# TABLE VIEW
+# DEBUG INFO
 # =========================
-st.subheader("Filtered Data")
-st.dataframe(df_filtered)
+st.write(f"Rows after filter: {len(df_filtered)}")
+
+if df_filtered.empty:
+    st.warning("No data matches the selected filters.")
+    st.stop()
+
+
+# =========================
+# 3D SCATTER PLOT BY MARKET
+# =========================
+st.subheader("3D Strategy Positioning by Market")
+
+markets = sorted(df_filtered["market_id"].unique())
+
+for market in markets:
+
+    df_market = df_filtered[df_filtered["market_id"] == market]
+
+    st.markdown(f"## Market {market}")
+
+    fig = px.scatter_3d(
+        df_market,
+        x="Price",
+        y="Product quality",
+        z="Product image",
+        color="Company",          # ใช้ Company แยกสีทีม
+        size="Sales volume",
+        hover_name="Company",
+    )
+
+    fig.update_layout(
+        height=600,
+        scene=dict(
+            xaxis_title="Price",
+            yaxis_title="Product Quality",
+            zaxis_title="Product Image"
+        )
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("### Data")
+    st.dataframe(df_market, use_container_width=True)
+
+    st.divider()
