@@ -10,7 +10,7 @@ if "data_store" not in st.session_state:
 
 data_store = st.session_state["data_store"]
 
-st.title("Plot Data Page")
+st.title("Insights Data from Sale Status")
 st.info("For each round, paste all 4 markets below, then add the full round.")
 
 
