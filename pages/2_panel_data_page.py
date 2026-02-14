@@ -156,7 +156,7 @@ if add_clicked:
 
             st.session_state.stored_markets.append({
                 "round": round_id,
-                "market": market_id,
+                "market_id": market_id,
                 "raw_text": raw_text,
                 "df": df
             })
@@ -180,11 +180,84 @@ if add_clicked:
 # -------------------------
 st.subheader("Stored Panel Data")
 
-if st.session_state.stored_markets:
+ds = st.session_state.get("data_store", None)
+
+# เลือก source เดียวเท่านั้น
+if ds and ds.round_dfs:
+    all_markets = ds.to_stored_markets_format()
+elif "stored_markets" in st.session_state:
+    all_markets = st.session_state.stored_markets
+else:
+    all_markets = []
+
+# -------------------------
+# DEBUG SECTION
+# -------------------------
+with st.expander("🔍 Debug Panel Data State", expanded=False):
+    st.markdown("## 🔎 Debug Info")
+
+    st.write("Total records in all_markets:", len(all_markets))
+
+    # แสดง source breakdown
+    stored_count = len(st.session_state.get("stored_markets", []))
+    ds_count = 0
+    if ds and ds.round_dfs:
+        try:
+            ds_count = len(ds.to_stored_markets_format())
+        except:
+            pass
+
+    st.write("stored_markets count:", stored_count)
+    st.write("DataStore count:", ds_count)
+
+    # ---- Count per round ----
+    round_count = {}
+    for item in all_markets:
+        round_count.setdefault(item["round"], 0)
+        round_count[item["round"]] += 1
+
+    st.write("Count per Round:", round_count)
+
+    # ---- Count per (round, market) ----
+    market_count = {}
+    for item in all_markets:
+        key = (item["round"], item["market_id"])
+        market_count.setdefault(key, 0)
+        market_count[key] += 1
+
+    st.write("Count per (Round, Market):", market_count)
+
+    st.markdown("## 🔎 Round Debug")
+
+    # ดู round ทั้งหมดที่มี
+    round_values = [item.get("round") for item in all_markets]
+    st.write("Unique Round Values:", sorted(set(round_values)))
+
+    # นับจำนวนต่อ round
+    round_count = {}
+    for r in round_values:
+        round_count.setdefault(r, 0)
+        round_count[r] += 1
+
+    st.write("Count per Round:", round_count)
+
+    # ดูตัวอย่าง 10 record แรก
+    st.write("Sample Records:")
+    st.write(all_markets[:10])
+
+
+# if ds:
+#     try:
+#         loaded = ds.to_stored_markets_format()
+#         all_markets.extend(loaded)
+#     except:
+#         pass
+
+if all_markets:
 
     # ---- Group by Round ----
     grouped = {}
-    for item in st.session_state.stored_markets:
+    for item in all_markets:
         grouped.setdefault(item["round"], []).append(item)
 
     for round_id in sorted(grouped.keys()):
@@ -193,54 +266,74 @@ if st.session_state.stored_markets:
 
         markets = grouped[round_id]
 
-        for m in sorted(markets, key=lambda x: x["market"]):
+        # ---- Group by market_id ภายใน round ----
+        market_group = {}
+        for item in markets:
+            market_group.setdefault(item["market_id"], []).append(item)
+
+        for market_id in sorted(market_group.keys()):
+
+            teams_in_market = market_group[market_id]
 
             col1, col2, col3, col4 = st.columns([3,1,1,1])
 
+            # -------- Display --------
             with col1:
-                st.write(f"Market {m['market']}")
+                st.write(f"Market {market_id} ({len(teams_in_market)} teams)")
 
-            # (อนาคต) ปุ่มไปหน้าข้อมูล
+
+            # -------- Go to Data --------
             with col2:
                 st.button(
                     "Go to Data",
-                    key=f"go_{round_id}_{m['market']}"
+                    key=f"go_{round_id}_{market_id}"
                 )
 
-            # โหลดกลับเข้า parse ช่อง
+            # -------- LOAD MARKET (โหลดทั้ง market) --------
             with col3:
+
+                def load_market(r=round_id, mk=market_id, teams=teams_in_market):
+                    st.session_state[f"panel_market_{mk}"] = teams
+
                 st.button(
                     "Load",
-                    key=f"load_{round_id}_{m['market']}",
-                    on_click=lambda r=m["round"], mk=m["market"], txt=m["raw_text"]:
-                        st.session_state.update(
-                            {f"panel_market_{mk}": txt}
-                        )
+                    key=f"load_{round_id}_{market_id}",
+                    on_click=load_market
                 )
 
-            # ลบตลาดเดียว
+            # -------- DELETE MARKET --------
             with col4:
                 if st.button(
                     "Delete",
-                    key=f"del_{round_id}_{m['market']}"
+                    key=f"del_{round_id}_{market_id}"
                 ):
-                    st.session_state.stored_markets = [
-                        x for x in st.session_state.stored_markets
-                        if not (x["round"] == round_id and x["market"] == m["market"])
-                    ]
+                    if "stored_markets" in st.session_state:
+                        st.session_state.stored_markets = [
+                            x for x in st.session_state.stored_markets
+                            if not (
+                                x["round"] == round_id and
+                                x["market_id"] == market_id
+                            )
+                        ]
                     st.rerun()
-
-        # ---- Delete Entire Round ----
+        # -------- DELETE ROUND --------
         if st.button(
             f"Delete Round {round_id}",
             key=f"delete_round_{round_id}"
         ):
-            st.session_state.stored_markets = [
-                x for x in st.session_state.stored_markets
-                if x["round"] != round_id
-            ]
+            if "stored_markets" in st.session_state:
+                st.session_state.stored_markets = [
+                    x for x in st.session_state.stored_markets
+                    if x["round"] != round_id
+                ]
             st.rerun()
+
         st.write("---")
+
+else:
+    st.info("No stored panel data available.")
+
+
 # -------------------------
 # Run Panel Analysis
 # -------------------------
