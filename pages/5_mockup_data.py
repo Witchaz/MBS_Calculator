@@ -39,13 +39,13 @@ if uploaded_file is not None:
     ds.load_json(content)
     st.success("Data Loaded Successfully")
 
-
+st.dataframe(ds.get_full_performance_df())
 # ========================
 # Edit Section
 # ========================
 st.subheader("Edit Data")
 
-df = ds.get_all_rounds_df()
+df = ds.get_full_performance_df()
 
 if not df.empty:
     edited_df = st.data_editor(df, num_rows="dynamic")

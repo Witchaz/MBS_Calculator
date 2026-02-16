@@ -9,10 +9,10 @@ if "data_store" not in st.session_state:
     st.session_state["data_store"] = DataStore()
 
 def submit_net_profit():
-    st.session_state["data_store"].add_net_profit(
-        st.session_state["net_profit_input"]
-    )
-
+    st.session_state["data_store"].add_net_profit_text(
+    round_number=st.session_state["round_number_input"],
+    raw_text=st.session_state["net_profit_input"]
+)    
 
 col1, col2 = st.columns(2)
 
@@ -26,11 +26,4 @@ st.text_area("Net profit", key="net_profit_input")
 
 st.button("Submit", on_click=submit_net_profit)
 
-
-df = st.session_state["data_store"].get_all_rounds_net_profit()
-try: 
-    df.drop(columns=["log_price","log_quality","log_marketing","log_share"], inplace=True)
-except KeyError:
-    pass
-df = pd.merge(df, st.session_state["data_store"].get_all_rounds_df(), on="Company", how="left")
-st.dataframe(df)
+st.dataframe(st.session_state["data_store"].get_full_performance_df().drop(columns=["log_price","log_quality","log_marketing","log_share"], errors="ignore"))

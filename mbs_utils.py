@@ -125,3 +125,39 @@ def reestimate_all(round_dfs):
     if df_all["Round"].nunique() >= 2:
         fe = run_fixed_effects(df_all)
     return df_all, pooled, fe
+
+@st.cache_data(show_spinner=False)
+def parse_net_profit_text(raw_text, round_number):
+    """
+    Parse copied Net Profit table text into clean DataFrame.
+    Supports tab, comma, or multi-space separated columns.
+    """
+
+    # auto-detect separator
+    if "\t" in raw_text:
+        sep = "\t"
+    elif "," in raw_text:
+        sep = ","
+    else:
+        sep = r"\s{2,}"  # multiple spaces
+
+    df = pd.read_csv(StringIO(raw_text), sep=sep, engine="python")
+
+    # Standardize column names
+    df.columns = [col.strip() for col in df.columns]
+
+    # Clean Net profit
+    if "Net profit" in df.columns:
+        df["Net profit"] = (
+            df["Net profit"]
+            .astype(str)
+            .str.replace(",", "", regex=False)
+            .str.replace("$", "", regex=False)
+            .str.replace("(", "-", regex=False)
+            .str.replace(")", "", regex=False)
+            .astype(float)
+        )
+
+    df["Round"] = int(round_number)
+
+    return df
