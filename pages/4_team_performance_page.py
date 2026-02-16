@@ -9,6 +9,9 @@ if "data_store" not in st.session_state:
     st.session_state["data_store"] = DataStore()
 
 def submit_net_profit():
+    if st.session_state["team_name_input"] == "":
+        st.warning("Please enter a team name.")
+        return
     st.session_state["data_store"].add_net_profit_text(
     round_number=st.session_state["round_number_input"],
     raw_text=st.session_state["net_profit_input"]
