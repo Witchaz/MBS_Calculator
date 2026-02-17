@@ -16,38 +16,6 @@ if "data_store" not in st.session_state:
     st.session_state["data_store"] = DataStore()
 
 
-
-# ---------- SUBMIT ----------
-def submit_net_profit():
-    if st.session_state["company_name"].strip() == "":
-        st.warning("Please enter a company name.")
-        return
-
-    if st.session_state["net_profit_input"].strip() == "":
-        st.warning("Please enter net profit.")
-        return
-    st.session_state["data_store"].company_name = st.session_state["company_name"]
-    st.session_state["data_store"].add_net_profit_text(
-        round_number=st.session_state["round_number_input"],
-        raw_text=st.session_state["net_profit_input"]
-    )
-
-
-# ---------- INPUT UI ----------
-col1, col2 = st.columns(2)
-
-with col1:
-    st.text_input("Enter Company Name", key="company_name")
-
-with col2:
-    st.number_input("Enter Round Number", key="round_number_input", min_value=1, step=1)
-
-st.header("Enter Net profit")
-st.text_area("Net profit", key="net_profit_input")
-
-st.button("Submit", on_click=submit_net_profit)
-
-
 # ---------- DATA ----------
 df = (
     st.session_state["data_store"]
@@ -55,7 +23,6 @@ df = (
     .drop(columns=["log_price","log_quality","log_marketing","log_share"], errors="ignore")
 )
 
-st.dataframe(df)
 
 
 # ---------- COMPARISON ----------
