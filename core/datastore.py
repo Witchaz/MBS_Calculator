@@ -5,6 +5,7 @@ from mbs_utils import parse_net_profit_text
 
 class DataStore:
     def __init__(self):
+        self.company_name = ""
         self.round_dfs = []
         self.round_number = 1
         self.round_net_profit = []   # เก็บเป็น list ของ dict ดีกว่า

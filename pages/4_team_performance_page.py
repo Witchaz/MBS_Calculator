@@ -5,22 +5,40 @@ import plotly.graph_objects as go
 
 from core.datastore import DataStore
 
+
+# ---------- INIT SESSION ----------
+
+if st.session_state["data_store"].company_name != "":
+    st.session_state["company_name"] = \
+        st.session_state["data_store"].company_name
+
 if "data_store" not in st.session_state:
     st.session_state["data_store"] = DataStore()
 
-def submit_net_profit():
-    if st.session_state["team_name_input"] == "":
-        st.warning("Please enter a team name.")
-        return
-    st.session_state["data_store"].add_net_profit_text(
-    round_number=st.session_state["round_number_input"],
-    raw_text=st.session_state["net_profit_input"]
-)    
 
+
+# ---------- SUBMIT ----------
+def submit_net_profit():
+    if st.session_state["company_name"].strip() == "":
+        st.warning("Please enter a company name.")
+        return
+
+    if st.session_state["net_profit_input"].strip() == "":
+        st.warning("Please enter net profit.")
+        return
+    st.session_state["data_store"].company_name = st.session_state["company_name"]
+    st.session_state["data_store"].add_net_profit_text(
+        round_number=st.session_state["round_number_input"],
+        raw_text=st.session_state["net_profit_input"]
+    )
+
+
+# ---------- INPUT UI ----------
 col1, col2 = st.columns(2)
 
 with col1:
-    st.text_input("Enter Team Name", key="team_name_input")
+    st.text_input("Enter Company Name", key="company_name")
+
 with col2:
     st.number_input("Enter Round Number", key="round_number_input", min_value=1, step=1)
 
@@ -29,4 +47,175 @@ st.text_area("Net profit", key="net_profit_input")
 
 st.button("Submit", on_click=submit_net_profit)
 
-st.dataframe(st.session_state["data_store"].get_full_performance_df().drop(columns=["log_price","log_quality","log_marketing","log_share"], errors="ignore"))
+
+# ---------- DATA ----------
+df = (
+    st.session_state["data_store"]
+    .get_full_performance_df()
+    .drop(columns=["log_price","log_quality","log_marketing","log_share"], errors="ignore")
+)
+
+st.dataframe(df)
+
+
+# ---------- COMPARISON ----------
+if st.session_state["company_name"] != "" and not df.empty:
+
+    company_name = st.session_state["company_name"]
+
+    rounds = sorted(df["Round"].unique())
+
+    # ---------- ROUND TABS ----------
+    round_tabs = st.tabs([f"Round {r}" for r in rounds])
+
+    for round_tab, Round in zip(round_tabs, rounds):
+
+        with round_tab:
+
+            df_round = df[df["Round"] == Round]
+            markets = sorted(df_round["market_id"].unique())
+
+            # ---------- MARKET TABS ----------
+            market_tabs = st.tabs([f"Market {m}" for m in markets])
+
+            for market_tab, market in zip(market_tabs, markets):
+
+                with market_tab:
+
+                    df_market = df_round[
+                        df_round["market_id"] == market
+                    ].copy()
+
+                    if df_market.empty:
+                        st.info("No data available.")
+                        continue
+
+                    my_row = df_market[
+                        df_market["Company"] == company_name
+                    ]
+
+                    if my_row.empty:
+                        st.info(f"{company_name} not found in this market.")
+                        continue
+
+                    my_profit = my_row["Net profit"].iloc[0]
+
+                    df_market["Diff from Us"] = (
+                        df_market["Net profit"] - my_profit
+                    )
+
+                    df_market["% Diff from Us"] = (
+                        df_market["Diff from Us"] / abs(my_profit) * 100
+                    ).round(2)
+                    df_market = df_market.dropna(subset=["Net profit"])
+
+                    df_market["Rank"] = (
+                    df_market["Net profit"]
+                    .rank(ascending=False, method="min")
+                    .astype(int)
+                )
+
+
+                    df_market = df_market.sort_values(
+                        "Net profit", ascending=False
+                    )
+
+                    df_market["Revenue"] = df_market["Price"] * df_market["Sales volume"]
+                    st.dataframe(df_market, use_container_width=True)
+                    
+                    
+                    # ================= DASHBOARD SUMMARY =================
+
+                    metrics = ["Net profit", "Product image", "Product quality", "Revenue", "Price", "Market share"]
+
+                    for metric in metrics:
+
+                        if metric not in df_market.columns:
+                            continue
+
+                        st.markdown(f"## 📊 {metric}")
+
+                        df_metric = df_market.dropna(subset=[metric]).copy()
+
+                        if df_metric.empty:
+                            st.info("No data available.")
+                            continue
+
+                        # ---------------- SORT + RANK ----------------
+                        df_metric = df_metric.sort_values(metric, ascending=False)
+
+                        df_metric["Rank"] = (
+                            df_metric[metric]
+                            .rank(ascending=False, method="min")
+                            .astype(int)
+                        )
+
+                        leader = df_metric.iloc[0]
+                        market_avg = df_metric[metric].mean()
+
+                        our_row = df_metric[df_metric["Company"] == company_name]
+
+                        if our_row.empty:
+                            continue
+
+                        our_value = our_row[metric].iloc[0]
+                        our_rank = int(our_row["Rank"].iloc[0])
+
+                        pct_vs_leader = ((our_value - leader[metric]) / abs(leader[metric]) * 100) if leader[metric] != 0 else 0
+                        pct_vs_avg = ((our_value - market_avg) / abs(market_avg) * 100) if market_avg != 0 else 0
+
+                        # ================= KPI SECTION =================
+                        st.markdown("### 🏆 Market Overview")
+
+                        k1, k2, k3, k4 = st.columns(4)
+
+                        k1.metric("🏆 Market Leader", leader["Company"])
+                        k2.metric("📈 Market Avg", f"{market_avg:,.2f}")
+                        k3.metric("🎯 Our Rank", f"{our_rank}/{len(df_metric)}")
+                        k4.metric("📊 Our Value", f"{our_value:,.2f}")
+
+                        c1, c2 = st.columns(2)
+                        c1.metric("Vs Leader", f"{pct_vs_leader:+.2f}%")
+                        c2.metric("Vs Market Avg", f"{pct_vs_avg:+.2f}%")
+
+                        st.divider()
+
+                        # ================= CLOSEST TO AVERAGE =================
+                        st.markdown("### 🎯 Closest to Market Average")
+
+                        df_metric["Diff_from_Avg"] = abs(df_metric[metric] - market_avg)
+
+                        closest_teams = df_metric.sort_values("Diff_from_Avg").head(3)
+
+                        for _, row in closest_teams.iterrows():
+                            st.write(
+                                f"{row['Company']} — {row[metric]:,.2f} "
+                                f"(Δ {row['Diff_from_Avg']:,.2f})"
+                            )
+
+                        st.divider()
+
+                        # ================= TOP / BOTTOM =================
+                        left, right = st.columns(2)
+
+                        with left:
+                            st.markdown("### 🔥 Top 3")
+                            for _, row in df_metric.head(3).iterrows():
+                                st.write(f"{row['Rank']}. {row['Company']} — {row[metric]:,.2f}")
+
+                        with right:
+                            st.markdown("### 🔻 Bottom 3")
+                            for _, row in df_metric.tail(3).iterrows():
+                                st.write(f"{row['Rank']}. {row['Company']} — {row[metric]:,.2f}")
+
+                        st.divider()
+
+                        # ================= FULL TABLE =================
+                        st.markdown("### 📋 Full Ranking")
+                        with st.expander("See full ranking table", expanded=False):
+                            st.dataframe(
+                                df_metric.sort_values("Rank"),
+                                use_container_width=True
+                            )
+
+                        st.divider()

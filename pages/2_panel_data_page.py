@@ -246,13 +246,6 @@ with st.expander("🔍 Debug Panel Data State", expanded=False):
     st.write(all_markets[:10])
 
 
-# if ds:
-#     try:
-#         loaded = ds.to_stored_markets_format()
-#         all_markets.extend(loaded)
-#     except:
-#         pass
-
 if all_markets:
 
     # ---- Group by Round ----
