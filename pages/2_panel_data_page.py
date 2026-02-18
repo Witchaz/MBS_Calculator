@@ -111,7 +111,7 @@ with st.expander("🔍 Debug Panel Data State", expanded=False):
         round_count.setdefault(item["round"], 0)
         round_count[item["round"]] += 1
 
-    st.write("Count per Round:", round_count)
+    st.write("Count per round:", round_count)
 
     # ---- Count per (round, market) ----
     market_count = {}
@@ -120,13 +120,13 @@ with st.expander("🔍 Debug Panel Data State", expanded=False):
         market_count.setdefault(key, 0)
         market_count[key] += 1
 
-    st.write("Count per (Round, Market):", market_count)
+    st.write("Count per (round, Market):", market_count)
 
-    st.markdown("## 🔎 Round Debug")
+    st.markdown("## 🔎 round Debug")
 
     # ดู round ทั้งหมดที่มี
     round_values = [item.get("round") for item in all_markets]
-    st.write("Unique Round Values:", sorted(set(round_values)))
+    st.write("Unique round Values:", sorted(set(round_values)))
 
     # นับจำนวนต่อ round
     round_count = {}
@@ -134,7 +134,7 @@ with st.expander("🔍 Debug Panel Data State", expanded=False):
         round_count.setdefault(r, 0)
         round_count[r] += 1
 
-    st.write("Count per Round:", round_count)
+    st.write("Count per round:", round_count)
 
     # ดูตัวอย่าง 10 record แรก
     st.write("Sample Records:")
@@ -143,14 +143,14 @@ with st.expander("🔍 Debug Panel Data State", expanded=False):
 
 if all_markets:
 
-    # ---- Group by Round ----
+    # ---- Group by round ----
     grouped = {}
     for item in all_markets:
         grouped.setdefault(item["round"], []).append(item)
 
     for round_id in sorted(grouped.keys()):
 
-        st.markdown(f"### Round {round_id}")
+        st.markdown(f"### round {round_id}")
 
         markets = grouped[round_id]
 
@@ -206,7 +206,7 @@ if all_markets:
                     st.rerun()
         # -------- DELETE ROUND --------
         if st.button(
-            f"Delete Round {round_id}",
+            f"Delete round {round_id}",
             key=f"delete_round_{round_id}"
         ):
             if "stored_markets" in st.session_state:
@@ -253,7 +253,7 @@ if st.button("Run Panel Analysis", key="run_panel"):
 
                 try:
                     # เช็คขั้นต่ำว่ามีมากกว่า 1 รอบ
-                    if df_m.groupby("Company")["Round"].nunique().min() >= 2:
+                    if df_m.groupby("company")["round"].nunique().min() >= 2:
                         fe = run_fixed_effects(df_m)
                     else:
                         st.info(
@@ -429,7 +429,7 @@ if st.session_state.panel_result:
                 )
                 st.dataframe(
                     df_m[
-                        ["Product quality", "Price", "Product image", "Market share"]
+                        ["product_quality", "price", "product_image", "market_share"]
                     ].corr()
                 )
 

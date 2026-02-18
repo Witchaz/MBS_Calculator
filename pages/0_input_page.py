@@ -1,7 +1,11 @@
 import streamlit as st
 import pandas as pd
+import re
+
 from core.datastore import DataStore
 from mbs_utils import parse_game_text, prepare_features
+from io import StringIO
+
 
 
 
@@ -36,6 +40,9 @@ round_number = st.number_input(
     key="input_round_number",
     value=st.session_state["round_number_input"]
 )
+
+with st.expander("ℹ️ Debug Info", expanded=False):
+    st.write(st.session_state)
 # =====================================================
 # COMPANY NAME
 # =====================================================
@@ -49,17 +56,59 @@ st.text_input(
 # =====================================================
 # 1️⃣ MARKET INPUT SECTION
 # =====================================================
+
+def parse_all_markets(raw_text):
+    markets = {}
+
+    # Split by Market blocks
+    blocks = re.split(r"Market\s+\d+", raw_text)
+    market_ids = re.findall(r"Market\s+(\d+)", raw_text)
+
+    for market_id, block in zip(market_ids, blocks[1:]):  
+        block = block.strip()
+        if not block:
+            continue
+
+        # Convert block to dataframe
+        df = pd.read_csv(
+            StringIO(block),
+            sep="\t"
+        )
+
+        # Clean columns
+        df.columns = df.columns.str.strip()
+
+        # Clean numeric columns
+        if "Price" in df.columns:
+            df["Price"] = df["Price"].replace("[\$,]", "", regex=True).astype(float)
+
+        if "Sales volume" in df.columns:
+            df["Sales volume"] = df["Sales volume"].replace(",", "", regex=True).astype(float)
+
+        if "Market share" in df.columns:
+            df["Market share"] = df["Market share"].replace("%", "", regex=True).astype(float)
+
+        markets[int(market_id)] = df
+
+    return markets
+
+
 st.header("📊 Market Sale Status")
 
-tabs = st.tabs([f"Market {i}" for i in range(1, 5)])
+raw_text = st.text_area(
+    "Paste All Market Data",
+    key="input_all_markets",
+    height=400
+)
 
-for idx, tab in enumerate(tabs, start=1):
-    with tab:
-        st.text_area(
-            f"Paste data for Market {idx}",
-            key=f"input_market_{idx}",
-            height=250
-        )
+if raw_text:
+    market_data = parse_all_markets(raw_text)
+
+    for m, df in market_data.items():
+        st.write(f"Market {m}")
+        st.dataframe(df)
+        st.session_state[f"input_market_{m}"] = raw_text  # store raw text for each market
+
 
 # =====================================================
 # 2️⃣ NET PROFIT SECTION
@@ -101,7 +150,8 @@ def save_round():
             st.error(f"Market {market_id} is empty.")
             return
 
-        df = parse_game_text(raw_text)
+        df = parse_game_text(raw_text, round_number=round_number)
+        print(df.columns.tolist())
         df = prepare_features(df, round_number=round_number)
         df["market_id"] = market_id
 

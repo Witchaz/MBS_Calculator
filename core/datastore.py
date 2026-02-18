@@ -32,8 +32,8 @@ class DataStore:
 
         for _, row in df_profit.iterrows():
             self.round_net_profit.append({
-                "Round": row["Round"],
-                "Company": row["Company"],
+                "round": row["round"],
+                "company": row["Company"],
                 "Net profit": row["Net profit"]
             })
 
@@ -70,21 +70,22 @@ class DataStore:
         if df_profit.empty:
             return df_main
         
+        print(df_main.columns.tolist())
         df_market = (
         pd.DataFrame(df_main)
-        .drop_duplicates(["Company","Round","market_id"])
+        .drop_duplicates(["company","round","market_id"])
     )
 
         df_profit = (
             pd.DataFrame(df_profit)
-            .drop_duplicates(["Company","Round"])
+            .drop_duplicates(["company","round"])
         )
 
 
         df = pd.merge(
-            df_main,
+            df_market,
             df_profit,
-            on=["Company", "Round"],
+            on=["company", "round"],
             how="left"
         )
 
@@ -92,7 +93,7 @@ class DataStore:
 
 
     # ---------------------------
-    # Load JSON (Round + Data string)
+    # Load JSON (round + Data string)
     # ---------------------------
     def load_json(self, json_str):
         try:
@@ -104,20 +105,20 @@ class DataStore:
                 # -------------------------
                 # Case 1: Market Data ปกติ
                 # -------------------------
-                if "Company" in data[0]:
+                if "company" in data[0]:
                     df = pd.DataFrame(data)
                     self.round_dfs.append(df)
 
                 # -------------------------
-                # Case 2: Net profit แบบ Round + Data
+                # Case 2: Net profit แบบ round + Data
                 # -------------------------
                 elif "Data" in data[0]:
                     for item in data:
-                        round_number = int(item["Round"])
+                        round_number = int(item["round"])
                         csv_string = item["Data"]
 
                         df_profit = pd.read_csv(StringIO(csv_string))
-                        df_profit["Round"] = round_number
+                        df_profit["round"] = round_number
 
                         if "Net profit" in df_profit.columns:
                             df_profit["Net profit"] = df_profit["Net profit"].apply(
@@ -126,8 +127,8 @@ class DataStore:
 
                         for _, row in df_profit.iterrows():
                             self.round_net_profit.append({
-                                "Round": row["Round"],
-                                "Company": row["Company"],
+                                "round": row["round"],
+                                "company": row["Company"],
                                 "Net profit": row["Net profit"]
                             })
 
@@ -156,7 +157,7 @@ class DataStore:
 
         for _, row in df.iterrows():
             results.append({
-                "round": int(row["Round"]),
+                "round": int(row["round"]),
                 "market_id": row.get("market_id"),
                 "raw_text": row.to_json()
             })
@@ -175,7 +176,7 @@ class DataStore:
         self.company_name = name
 
     # ---------------------------
-    # Round number Handler
+    # round number Handler
     # ---------------------------
 
     def get_round_number(self):

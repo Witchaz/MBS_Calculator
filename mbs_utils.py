@@ -4,67 +4,92 @@ import statsmodels.api as sm
 from linearmodels.panel import PanelOLS
 from io import StringIO
 import streamlit as st
-
 @st.cache_data(show_spinner=False)
-def parse_game_text(raw_text):
-    """
-    Convert copied table text into DataFrame.
-    Assumes tab or multiple-space separated columns.
-    Adjust delimiter if needed.
-    """
-    df = pd.read_csv(StringIO(raw_text), sep="\t")
-    df["Price"] = df["Price"].str.replace("$", "", regex=False).astype(float)
-    df["Sales volume"] = df["Sales volume"].str.replace(",", "", regex=False).astype(int)
-    df["Market share"] = df["Market share"].str.replace("%", "", regex=False).astype(float) / 100
-    return df
 
-# @st.cache_data(show_spinner=False)
+def parse_game_text(raw_text, round_number: int):
+
+    import pandas as pd
+    from io import StringIO
+    import re
+
+    # 🔹 แยกแต่ละตลาด
+    markets = re.split(r"Market\s+\d+", raw_text)
+    market_numbers = re.findall(r"Market\s+(\d+)", raw_text)
+
+    dfs = []
+
+    for market_num, market_block in zip(market_numbers, markets[1:]):
+        market_block = market_block.strip()
+        if not market_block:
+            continue
+
+        df = pd.read_csv(
+            StringIO(market_block),
+            sep="\t"
+        )
+
+        # Standardize column names
+        df.columns = (
+            df.columns
+            .str.strip()
+            .str.lower()
+            .str.replace(" ", "_")
+        )
+
+        df["market_id"] = int(market_num)
+        df["round"] = round_number
+
+        # Clean numeric columns
+        if "price" in df.columns:
+            df["price"] = (
+                df["price"]
+                .astype(str)
+                .str.replace("$", "", regex=False)
+                .str.replace(",", "", regex=False)
+                .astype(float)
+            )
+
+        if "sales_volume" in df.columns:
+            df["sales_volume"] = (
+                df["sales_volume"]
+                .astype(str)
+                .str.replace(",", "", regex=False)
+                .astype(float)
+            )
+
+        if "market_share" in df.columns:
+            df["market_share"] = (
+                df["market_share"]
+                .astype(str)
+                .str.replace("%", "", regex=False)
+                .astype(float)
+            )
+
+        dfs.append(df)
+
+    final_df = pd.concat(dfs, ignore_index=True)
+    return final_df
+
+
 def prepare_features(df, round_number):
     df = df.copy()
-    df["Round"] = round_number
+    df["round"] = round_number
 
     epsilon = 1e-6
 
-    # Fill & clip ทุกตัว
-    df["Price"] = df["Price"].fillna(epsilon).clip(lower=epsilon)
-    df["Product quality"] = df["Product quality"].fillna(epsilon).clip(lower=epsilon)
-    df["Market share"] = df["Market share"].fillna(epsilon).clip(lower=epsilon)
-    df["Product image"] = df["Product image"].fillna(0).clip(lower=0)
+    df["price"] = df["price"].fillna(epsilon).clip(lower=epsilon)
+    df["product_quality"] = df["product_quality"].fillna(epsilon).clip(lower=epsilon)
+    df["market_share"] = df["market_share"].fillna(epsilon).clip(lower=epsilon)
+    df["product_image"] = df["product_image"].fillna(0).clip(lower=0)
 
-    # Logs
-    df["log_price"] = np.log(df["Price"])
-    df["log_quality"] = np.log(df["Product quality"])
-    df["log_marketing"] = np.log1p(df["Product image"])
-    df["log_share"] = np.log(df["Market share"])
+    df["log_price"] = np.log(df["price"])
+    df["log_quality"] = np.log(df["product_quality"])
+    df["log_marketing"] = np.log1p(df["product_image"])
+    df["log_share"] = np.log(df["market_share"])
 
-    # Hard clean
     df = df.replace([np.inf, -np.inf], np.nan)
 
     return df
-
-def interpret_results(params, pvalues):
-    results = []
-    for var in params.index:
-        if var == "const":
-            continue
-        coef = params[var]
-        pval = pvalues[var]
-        direction = "increase" if coef > 0 else "decrease"
-        significance = (
-            "Highly significant" if pval < 0.01 else
-            "Significant" if pval < 0.05 else
-            "Weak evidence" if pval < 0.1 else
-            "Not statistically significant"
-        )
-        elasticity = round(coef, 3)
-        results.append({
-            "variable": var,
-            "direction": direction,
-            "elasticity": elasticity,
-            "significance": significance,
-            "pval": round(pval, 4)
-        })
-    return results
 
 # @st.cache_data(show_spinner=False)
 def run_cross_section(df_round):
@@ -100,7 +125,7 @@ def run_fixed_effects(df_all):
 
     df_all = df_all.dropna(subset=vars_used)
 
-    df_panel = df_all.set_index(["Company", "Round"])
+    df_panel = df_all.set_index(["company", "round"])
 
     exog = df_panel[["log_price", "log_quality", "log_marketing"]]
     endog = df_panel["log_share"]
@@ -122,7 +147,7 @@ def reestimate_all(round_dfs):
     df_all = pd.concat(round_dfs, ignore_index=True)
     pooled = run_pooled_ols(df_all)
     fe = None
-    if df_all["Round"].nunique() >= 2:
+    if df_all["round"].nunique() >= 2:
         fe = run_fixed_effects(df_all)
     return df_all, pooled, fe
 
@@ -158,6 +183,6 @@ def parse_net_profit_text(raw_text, round_number):
             .astype(float)
         )
 
-    df["Round"] = int(round_number)
+    df["round"] = int(round_number)
 
     return df

@@ -29,8 +29,7 @@ df = (
 if st.session_state["company_name"] != "" and not df.empty:
 
     company_name = st.session_state["company_name"]
-
-    rounds = sorted(df["Round"].unique())
+    rounds = sorted(df["round"].unique())
 
     # ---------- ROUND TABS ----------
     round_tabs = st.tabs([f"Round {r}" for r in rounds])
@@ -39,7 +38,7 @@ if st.session_state["company_name"] != "" and not df.empty:
 
         with round_tab:
 
-            df_round = df[df["Round"] == Round]
+            df_round = df[df["round"] == Round]
             markets = sorted(df_round["market_id"].unique())
 
             # ---------- MARKET TABS ----------
@@ -58,7 +57,7 @@ if st.session_state["company_name"] != "" and not df.empty:
                         continue
 
                     my_row = df_market[
-                        df_market["Company"] == company_name
+                        df_market["company"] == company_name
                     ]
 
                     if my_row.empty:
@@ -76,7 +75,7 @@ if st.session_state["company_name"] != "" and not df.empty:
                     ).round(2)
                     df_market = df_market.dropna(subset=["Net profit"])
 
-                    df_market["Rank"] = (
+                    df_market["rank"] = (
                     df_market["Net profit"]
                     .rank(ascending=False, method="min")
                     .astype(int)
@@ -87,13 +86,13 @@ if st.session_state["company_name"] != "" and not df.empty:
                         "Net profit", ascending=False
                     )
 
-                    df_market["Revenue"] = df_market["Price"] * df_market["Sales volume"]
+                    df_market["revenue"] = df_market["price"] * df_market["sales_volume"]
                     st.dataframe(df_market, use_container_width=True)
                     
                     
                     # ================= DASHBOARD SUMMARY =================
 
-                    metrics = ["Net profit", "Product image", "Product quality", "Revenue", "Price", "Market share"]
+                    metrics = ["Net profit", "product_image", "product_quality", "revenue", "price", "market_share"]
 
                     for metric in metrics:
 
@@ -111,7 +110,7 @@ if st.session_state["company_name"] != "" and not df.empty:
                         # ---------------- SORT + RANK ----------------
                         df_metric = df_metric.sort_values(metric, ascending=False)
 
-                        df_metric["Rank"] = (
+                        df_metric["rank"] = (
                             df_metric[metric]
                             .rank(ascending=False, method="min")
                             .astype(int)
@@ -120,13 +119,13 @@ if st.session_state["company_name"] != "" and not df.empty:
                         leader = df_metric.iloc[0]
                         market_avg = df_metric[metric].mean()
 
-                        our_row = df_metric[df_metric["Company"] == company_name]
+                        our_row = df_metric[df_metric["company"] == company_name]
 
                         if our_row.empty:
                             continue
 
                         our_value = our_row[metric].iloc[0]
-                        our_rank = int(our_row["Rank"].iloc[0])
+                        our_rank = int(our_row["rank"].iloc[0])
 
                         pct_vs_leader = ((our_value - leader[metric]) / abs(leader[metric]) * 100) if leader[metric] != 0 else 0
                         pct_vs_avg = ((our_value - market_avg) / abs(market_avg) * 100) if market_avg != 0 else 0
@@ -136,7 +135,7 @@ if st.session_state["company_name"] != "" and not df.empty:
 
                         k1, k2, k3, k4 = st.columns(4)
 
-                        k1.metric("🏆 Market Leader", leader["Company"])
+                        k1.metric("🏆 Market Leader", leader["company"])
                         k2.metric("📈 Market Avg", f"{market_avg:,.2f}")
                         k3.metric("🎯 Our Rank", f"{our_rank}/{len(df_metric)}")
                         k4.metric("📊 Our Value", f"{our_value:,.2f}")
@@ -156,7 +155,7 @@ if st.session_state["company_name"] != "" and not df.empty:
 
                         for _, row in closest_teams.iterrows():
                             st.write(
-                                f"{row['Company']} — {row[metric]:,.2f} "
+                                f"{row['company']} — {row[metric]:,.2f} "
                                 f"(Δ {row['Diff_from_Avg']:,.2f})"
                             )
 
@@ -168,12 +167,12 @@ if st.session_state["company_name"] != "" and not df.empty:
                         with left:
                             st.markdown("### 🔥 Top 3")
                             for _, row in df_metric.head(3).iterrows():
-                                st.write(f"{row['Rank']}. {row['Company']} — {row[metric]:,.2f}")
+                                st.write(f"{row['rank']}. {row['company']} — {row[metric]:,.2f}")
 
                         with right:
                             st.markdown("### 🔻 Bottom 3")
                             for _, row in df_metric.tail(3).iterrows():
-                                st.write(f"{row['Rank']}. {row['Company']} — {row[metric]:,.2f}")
+                                st.write(f"{row['rank']}. {row['company']} — {row[metric]:,.2f}")
 
                         st.divider()
 
@@ -181,7 +180,7 @@ if st.session_state["company_name"] != "" and not df.empty:
                         st.markdown("### 📋 Full Ranking")
                         with st.expander("See full ranking table", expanded=False):
                             st.dataframe(
-                                df_metric.sort_values("Rank"),
+                                df_metric.sort_values("rank"),
                                 use_container_width=True
                             )
 
