@@ -162,3 +162,27 @@ class DataStore:
             })
 
         return results
+
+
+    # ---------------------------
+    # company name Handler
+    # ---------------------------
+    
+    def get_company_name(self):
+        return self.company_name
+    
+    def set_company_name(self, name):
+        self.company_name = name
+
+    # ---------------------------
+    # Round number Handler
+    # ---------------------------
+
+    def get_round_number(self):
+        return self.round_number
+    
+    def set_round_number(self, number):
+        self.round_number = number
+
+    def add_round_number(self, number):
+        self.round_number += number   

@@ -8,12 +8,12 @@ from core.datastore import DataStore
 
 # ---------- INIT SESSION ----------
 
-if st.session_state["data_store"].company_name != "":
-    st.session_state["company_name"] = \
-        st.session_state["data_store"].company_name
-
 if "data_store" not in st.session_state:
     st.session_state["data_store"] = DataStore()
+
+if st.session_state["data_store"].get_company_name() != "":
+    st.session_state["company_name"] = \
+        st.session_state["data_store"].get_company_name()
 
 
 # ---------- DATA ----------

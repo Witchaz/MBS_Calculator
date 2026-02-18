@@ -18,10 +18,13 @@ if "round_number_input" not in st.session_state:
     st.session_state["round_number_input"] = 1
 
 # sync จาก datastore ถ้ามีค่า
-if st.session_state["data_store"].company_name != "":
+if st.session_state["data_store"].get_company_name() != "":
     st.session_state["company_name"] = \
-        st.session_state["data_store"].company_name
+        st.session_state["data_store"].get_company_name()
 
+if st.session_state["data_store"].get_round_number() != 1:
+    st.session_state["round_number_input"] = \
+        st.session_state["data_store"].get_round_number()
 
 # -------------------------
 # ROUND INPUT
@@ -30,7 +33,8 @@ round_number = st.number_input(
     "Round number",
     min_value=1,
     step=1,
-    key="input_round_number"
+    key="input_round_number",
+    value=st.session_state["round_number_input"]
 )
 # =====================================================
 # COMPANY NAME
@@ -39,7 +43,8 @@ st.header("🏢 Team Information")
 
 st.text_input(
     "Enter Company Name",
-    key="input_company_name"
+    key="input_company_name",
+    value=st.session_state["company_name"]
 )
 # =====================================================
 # 1️⃣ MARKET INPUT SECTION
@@ -80,7 +85,8 @@ def save_round():
         st.error("Please enter a company name.")
         return
 
-    data_store.company_name = company_name
+    data_store.set_round_number(round_number)
+    data_store.set_company_name(company_name)   
 
     round_dfs = []
 
@@ -124,6 +130,9 @@ def save_round():
     st.session_state["input_net_profit"] = ""
 
     st.success(f"Round {round_number} saved successfully.")
+    st.session_state["round_number_input"] += 1
+    data_store.add_round_number(1)
+    
     st.rerun()
 
 st.button("Save Round", on_click=save_round)
