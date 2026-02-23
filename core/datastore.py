@@ -1,73 +1,124 @@
 import pandas as pd
+import streamlit as st
 import json
 import firebase_admin
-
 from io import StringIO
+from datetime import datetime
 from mbs_utils import parse_net_profit_text
 from firebase_admin import credentials, firestore
 
+
 class DataStore:
-    def __init__(self):
+    def __init__(self, game_id="current_game"):
+
         self.company_name = ""
         self.round_dfs = []
         self.round_number = 1
-        self.round_net_profit = []   # เก็บเป็น list ของ dict ดีกว่า
+        self.round_net_profit = []
+        self.game_id = game_id
 
-        # Firebase setup
+        # -------------------------
+        # Firebase setup (Firestore)
+        # -------------------------
         try:
-            cred = credentials.Certificate('mbs-calculator-firebase-adminsdk-fbsvc-86153c9e06.json')
-            firebase_admin.initialize_app(cred)
-            self.firebase_db = firestore.client()
+            if not firebase_admin._apps:
+                cred = credentials.Certificate(
+                    "mbs-calculator-firebase-adminsdk-fbsvc-86153c9e06.json"
+                )
+                firebase_admin.initialize_app(cred)
+
+            self.db = firestore.client()
 
         except Exception as e:
             print("Firebase init error:", e)
-            self.firebase_db = None
+            self.db = None
 
-    # Firebase methods
-    def set_data(self, path, data):
-        if self.firebase_db:
-            ref = self.firebase_db.reference(path)
-            ref.set(data)
-        else:
+    # =====================================================
+    # 🔥 FIRESTORE METHODS
+    # =====================================================
+
+    def create_new_game(self, game_id,company_name):
+        self.game_id = game_id
+
+        self.db.collection("mbs_games").document(game_id).set({
+            "company_name" : company_name, 
+            "created_at": datetime.utcnow(),
+            "status": "active"
+        })
+
+    def save_current_round(self):
+
+        if not self.db:
             print("Firebase not initialized")
+            return
 
-    def get_data(self, path):
-        if self.firebase_db:
-            ref = self.firebase_db.reference(path)
-            return ref.get()
+        df_market = self.get_all_rounds_df()
+        df_profit = self.get_all_rounds_net_profit()
+
+        round_ref = (
+            self.db.collection("mbs_games")
+            .document(self.game_id)
+            .collection("rounds")
+            .document(f"round_{self.round_number}")
+        )
+
+        round_ref.set({
+            "round_number": self.round_number,
+            "market_data": df_market.to_dict(orient="records"),
+            "net_profit": df_profit.to_dict(orient="records"),
+            "updated_at": datetime.utcnow()
+        })
+
+        print(f"Round {self.round_number} saved.")
+
+    def load_round(self, round_number):
+
+        doc_ref = (
+            self.db.collection("mbs_games")
+            .document(self.game_id)
+            .collection("rounds")
+            .document(f"round_{round_number}")
+        )
+
+        doc = doc_ref.get()
+
+        if doc.exists:
+            data = doc.to_dict()
+
+            self.round_dfs = [
+                pd.DataFrame(data.get("market_data", []))
+            ]
+
+            self.round_net_profit = data.get("net_profit", [])
+            self.round_number = round_number
+
+            print(f"Loaded round {round_number}")
         else:
-            print("Firebase not initialized")
-            return None
+            print("Round not found")
 
-    def update_data(self, path, data):
-        if self.firebase_db:
-            ref = self.firebase_db.reference(path)
-            ref.update(data)
-        else:
-            print("Firebase not initialized")
+    def list_games(self):
+        games = self.db.collection("mbs_games").stream()
+        return [g.id for g in games]
 
-    def listen(self, path, callback):
-        if self.firebase_db:
-            ref = self.firebase_db.reference(path)
-            ref.listen(callback)
-        else:
-            print("Firebase not initialized")
+    def list_rounds(self):
+        rounds = (
+            self.db.collection("mbs_games")
+            .document(self.game_id)
+            .collection("rounds")
+            .stream()
+        )
+        return [r.id for r in rounds]
 
+    # =====================================================
+    # DATA HANDLING 
+    # =====================================================
 
-    # ---------------------------
-    # Clean currency helper
-    # ---------------------------
     def _clean_currency(self, value):
         value = str(value)
         value = value.replace(",", "").replace("$", "")
         if "(" in value:
             value = "-" + value.replace("(", "").replace(")", "")
         return float(value)
-
-
-    # ---------------------------
-    # Add net profit manually
-    # ---------------------------
 
     def add_net_profit_text(self, round_number, raw_text):
 
@@ -80,20 +131,11 @@ class DataStore:
                 "Net profit": row["Net profit"]
             })
 
-
-
-    # ---------------------------
-    # Get round df (from JSON load)
-    # ---------------------------
     def get_all_rounds_df(self):
         if not self.round_dfs:
             return pd.DataFrame()
         return pd.concat(self.round_dfs, ignore_index=True)
 
-
-    # ---------------------------
-    # Get net profit df
-    # ---------------------------
     def get_all_rounds_net_profit(self):
         if not self.round_net_profit:
             return pd.DataFrame()
@@ -112,18 +154,16 @@ class DataStore:
 
         if df_profit.empty:
             return df_main
-        
-        print(df_main.columns.tolist())
+
         df_market = (
-        pd.DataFrame(df_main)
-        .drop_duplicates(["company","round","market_id"])
-    )
+            pd.DataFrame(df_main)
+            .drop_duplicates(["company", "round", "market_id"])
+        )
 
         df_profit = (
             pd.DataFrame(df_profit)
-            .drop_duplicates(["company","round"])
+            .drop_duplicates(["company", "round"])
         )
-
 
         df = pd.merge(
             df_market,
@@ -133,100 +173,74 @@ class DataStore:
         )
 
         return df
-
-
-    # ---------------------------
-    # Load JSON (round + Data string)
-    # ---------------------------
-    def load_json(self, json_str):
-        try:
-            data = json.loads(json_str)
-
-            # ถ้าเป็น list ของ dict
-            if isinstance(data, list):
-
-                # -------------------------
-                # Case 1: Market Data ปกติ
-                # -------------------------
-                if "company" in data[0]:
-                    df = pd.DataFrame(data)
-                    self.round_dfs.append(df)
-
-                # -------------------------
-                # Case 2: Net profit แบบ round + Data
-                # -------------------------
-                elif "Data" in data[0]:
-                    for item in data:
-                        round_number = int(item["round"])
-                        csv_string = item["Data"]
-
-                        df_profit = pd.read_csv(StringIO(csv_string))
-                        df_profit["round"] = round_number
-
-                        if "Net profit" in df_profit.columns:
-                            df_profit["Net profit"] = df_profit["Net profit"].apply(
-                                self._clean_currency
-                            )
-
-                        for _, row in df_profit.iterrows():
-                            self.round_net_profit.append({
-                                "round": row["round"],
-                                "company": row["Company"],
-                                "Net profit": row["Net profit"]
-                            })
-
-            else:
-                print("Unsupported JSON structure")
-
-        except Exception as e:
-            print("Load error:", e)
-
-
-    # ---------------------------
-    # Export JSON
-    # ---------------------------
-    def export_json(self):
-        df = self.get_all_rounds_df()
-        return df.to_json(orient="records", indent=2)
-
-
-    # ---------------------------
-    # Convert to stored markets format
-    # ---------------------------
-    def to_stored_markets_format(self):
-        df = self.get_all_rounds_df()
-
-        results = []
-
-        for _, row in df.iterrows():
-            results.append({
-                "round": int(row["round"]),
-                "market_id": row.get("market_id"),
-                "raw_text": row.to_json()
-            })
-
-        return results
-
-
-    # ---------------------------
-    # company name Handler
-    # ---------------------------
     
-    def get_company_name(self):
-        return self.company_name
+    @st.cache_data(ttl=30)
+    def load_all_rounds_from_firebase(_self):
+
+        if not _self.db:
+            print("Firebase not initialized")
+            return pd.DataFrame()
+
+        rounds_ref = (
+            _self.db.collection("mbs_games")
+            .document(_self.game_id)
+            .collection("rounds")
+            .stream()
+        )
+
+        all_market_data = []
+        all_profit_data = []
+
+        for doc in rounds_ref:
+            data = doc.to_dict()
+
+            market_data = data.get("market_data", [])
+            profit_data = data.get("net_profit", [])
+
+            all_market_data.extend(market_data)
+            all_profit_data.extend(profit_data)
+
+        if not all_market_data:
+            return pd.DataFrame()
+
+        df_market = pd.DataFrame(all_market_data)
+        df_profit = pd.DataFrame(all_profit_data)
+
+        if df_profit.empty:
+            return df_market
+
+        df = pd.merge(
+            df_market,
+            df_profit,
+            on=["company", "round"],
+            how="left"
+        )
+
+        return df
     
-    def set_company_name(self, name):
+    # --------------------------- # company name Handler # --------------------------- 
+    @st.cache_data
+    def get_company_name(_self, game_id: str):
+        doc = (
+            _self.db
+            .collection("mbs_games")
+            .document(game_id)
+            .get()
+        )
+
+        if doc.exists:
+            return doc.to_dict().get("company_name")
+
+        return None
+    def set_company_name(self, name): 
         self.company_name = name
 
-    # ---------------------------
-    # round number Handler
-    # ---------------------------
-
+    # --------------------------- # Round number Handler # --------------------------- 
     def get_round_number(self):
-        return self.round_number
-    
-    def set_round_number(self, number):
-        self.round_number = number
+        return self.round_number 
 
-    def add_round_number(self, number):
-        self.round_number += number   
+    def set_round_number(self, round_number):
+        self.round_number = round_number
+
+    def add_round_number(self, round_number):
+        self.round_number = self.round_number + round_number
