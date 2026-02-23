@@ -151,7 +151,6 @@ def save_round():
             return
 
         df = parse_game_text(raw_text, round_number=round_number)
-        print(df.columns.tolist())
         df = prepare_features(df, round_number=round_number)
         df["market_id"] = market_id
 

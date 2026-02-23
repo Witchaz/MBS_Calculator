@@ -1,7 +1,10 @@
 import pandas as pd
 import json
+import firebase_admin
+
 from io import StringIO
 from mbs_utils import parse_net_profit_text
+from firebase_admin import credentials, firestore
 
 class DataStore:
     def __init__(self):
@@ -9,6 +12,46 @@ class DataStore:
         self.round_dfs = []
         self.round_number = 1
         self.round_net_profit = []   # เก็บเป็น list ของ dict ดีกว่า
+
+        # Firebase setup
+        try:
+            cred = credentials.Certificate('mbs-calculator-firebase-adminsdk-fbsvc-86153c9e06.json')
+            firebase_admin.initialize_app(cred)
+            self.firebase_db = firestore.client()
+
+        except Exception as e:
+            print("Firebase init error:", e)
+            self.firebase_db = None
+
+    # Firebase methods
+    def set_data(self, path, data):
+        if self.firebase_db:
+            ref = self.firebase_db.reference(path)
+            ref.set(data)
+        else:
+            print("Firebase not initialized")
+
+    def get_data(self, path):
+        if self.firebase_db:
+            ref = self.firebase_db.reference(path)
+            return ref.get()
+        else:
+            print("Firebase not initialized")
+            return None
+
+    def update_data(self, path, data):
+        if self.firebase_db:
+            ref = self.firebase_db.reference(path)
+            ref.update(data)
+        else:
+            print("Firebase not initialized")
+
+    def listen(self, path, callback):
+        if self.firebase_db:
+            ref = self.firebase_db.reference(path)
+            ref.listen(callback)
+        else:
+            print("Firebase not initialized")
 
 
     # ---------------------------
