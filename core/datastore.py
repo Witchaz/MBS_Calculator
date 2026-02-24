@@ -22,6 +22,9 @@ class DataStore:
         # Firebase setup (Hybrid Version)
         # -------------------------
         try:
+            st.write("Checking environment...")
+            st.write("Local key exists:", os.path.exists(local_key_path))
+            st.write("Secrets keys:", list(st.secrets.keys()))
             if not firebase_admin._apps:
                 # 1. ระบุชื่อไฟล์ JSON ที่ใช้บนเครื่องคอมคุณ
                 local_key_path = "mbs-calculator-firebase-adminsdk-fbsvc-86153c9e06.json"
