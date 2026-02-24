@@ -1,6 +1,6 @@
 import pandas as pd
 import streamlit as st
-import json
+import os
 import firebase_admin
 from io import StringIO
 from datetime import datetime
@@ -19,19 +19,31 @@ class DataStore:
         self.game_id = game_id
 
         # -------------------------
-        # Firebase setup (Firestore)
+        # Firebase setup (Hybrid Version)
         # -------------------------
         try:
             if not firebase_admin._apps:
-                cred = credentials.Certificate(
-                    "mbs-calculator-firebase-adminsdk-fbsvc-86153c9e06.json"
-                )
-                firebase_admin.initialize_app(cred)
+                # 1. ระบุชื่อไฟล์ JSON ที่ใช้บนเครื่องคอมคุณ
+                local_key_path = "mbs-calculator-firebase-adminsdk-fbsvc-86153c9e06.json"
+
+                if os.path.exists(local_key_path):
+                    # --- กรณีรันบนคอมตัวเอง (Local) ---
+                    cred = credentials.Certificate(local_key_path)
+                    firebase_admin.initialize_app(cred)
+                else:
+                    # --- กรณีรันบน Streamlit Cloud ---
+                    # ดึงค่าจาก st.secrets["firebase_service_account"]
+                    firebase_secrets = dict(st.secrets["firebase_service_account"])
+                    # ล้างค่า \n ให้ถูกต้อง (ป้องกัน Error เวลา Copy วาง)
+                    firebase_secrets["private_key"] = firebase_secrets["private_key"].replace("\\n", "\n")
+                    
+                    cred = credentials.Certificate(firebase_secrets)
+                    firebase_admin.initialize_app(cred)
 
             self.db = firestore.client()
 
         except Exception as e:
-            print("Firebase init error:", e)
+            st.error(f"Firebase init error: {e}")
             self.db = None
 
     # =====================================================
