@@ -41,6 +41,7 @@ class DataStore:
                     firebase_admin.initialize_app(cred)
 
             self.db = firestore.client()
+            print("Done")
 
         except Exception as e:
             st.error(f"Firebase init error: {e}")
