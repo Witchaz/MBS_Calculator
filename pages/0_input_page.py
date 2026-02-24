@@ -122,7 +122,7 @@ if raw_text:
 
 
 # =====================================================
-# 2️⃣ NET PROFIT SECTION
+# 2️ NET PROFIT SECTION
 # =====================================================
 st.header("💰 Net Profit")
 
@@ -131,6 +131,19 @@ st.text_area(
     key="input_net_profit",
     height=200
 )
+
+
+# =====================================================
+#  POTENTIAL DEMAND SECTION
+# =====================================================
+'''st.header("💰 Potential Demand")
+
+st.text_area(
+    "Paste Potential Demand",
+    key="input_potential_demand",
+    height=200
+)'''
+
 def save_round():
 
     datastore = st.session_state["datastore"]
@@ -169,7 +182,21 @@ def save_round():
             round_number=round_number,
             raw_text=net_profit_text
         )
+    
+    # -------------------------
+    # Potential Demand
+    # -------------------------
+    '''
+    potential_demand_text = st.session_state["input_potential_demand"].strip()
 
+    datastore.round_potential_demand = []  # reset ก่อน
+
+    if potential_demand_text != "":
+        datastore.add_potential_demand_text(
+            round_number=round_number,
+            raw_text=potential_demand_text
+        )
+    '''
     # -------------------------
     # 🔥 SAVE TO FIRESTORE
     # -------------------------

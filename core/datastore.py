@@ -15,6 +15,7 @@ class DataStore:
         self.round_dfs = []
         self.round_number = 1
         self.round_net_profit = []
+        self.round_potential_demand = []
         self.game_id = game_id
 
         # -------------------------
@@ -140,6 +141,11 @@ class DataStore:
         if not self.round_net_profit:
             return pd.DataFrame()
         return pd.DataFrame(self.round_net_profit)
+    
+    def get_all_rounds_potential_demand(self):
+        if not self.round_potential_demand:
+            return pd.DataFrame()
+        return pd.DataFrame(self.round_potential_demand)
 
     def get_full_performance_df(self):
 
