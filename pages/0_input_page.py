@@ -127,7 +127,7 @@ if raw_text:
 st.header("💰 Net Profit")
 
 st.text_area(
-    "Paste Net Profit (same format as Team Performance page)",
+    "Paste Net Profit",
     key="input_net_profit",
     height=200
 )

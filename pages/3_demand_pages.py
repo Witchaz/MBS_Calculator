@@ -1,8 +1,16 @@
 import streamlit as st
+from core.datastore import DataStore
 
 # =========================
 # DATASTORE (Session State)
 # =========================
+if "datastore" not in st.session_state:
+    st.session_state["datastore"] = DataStore()
+ds = st.session_state["datastore"]
+
+if "game_id" not in st.session_state:
+    st.error("Please select a game first.")
+    st.stop()
 
 def init_datastore():
     if "env" not in st.session_state:
