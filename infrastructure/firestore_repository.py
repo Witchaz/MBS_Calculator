@@ -51,7 +51,6 @@ class FirestoreRepository:
             .collection("rounds")
             .document(f"round_{round_number}")
         )
-
         round_ref.set({
             "round_number": round_number,
             "market_data": market_df.to_dict("records"),
@@ -106,7 +105,8 @@ class FirestoreRepository:
 
         if df_profit.empty:
             return df_market
-
+        print(df_market)
+        print(df_profit)
         return pd.merge(
             df_market,
             df_profit,

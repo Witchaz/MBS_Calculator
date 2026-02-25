@@ -73,7 +73,6 @@ for round_tab, Round in zip(round_tabs, rounds):
 
         # ================= ROUND SUMMARY =================
         df_summary = service.get_round_summary(df_round)
-
         st.subheader("📊 Round Summary")
         st.dataframe(df_summary.style.format({
         "Net profit": "{:,.2f}",

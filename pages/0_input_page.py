@@ -54,7 +54,6 @@ def split_markets(raw_text: str):
         market_id = int(blocks[i])
         market_body = blocks[i + 1].strip()
         markets[market_id] = market_body
-
     return markets
 
 
@@ -69,30 +68,24 @@ raw_market_text = st.text_area(
     height=400
 )
 
-if raw_market_text:
-    preview_markets = split_markets(raw_market_text)
-
-    for m_id, m_text in preview_markets.items():
-        try:
-            df_preview = pd.read_csv(StringIO(m_text), sep="\t")
-            df_preview.columns = df_preview.columns.str.strip()
-            st.subheader(f"Market {m_id}")
-            st.dataframe(df_preview)
-        except Exception:
-            st.warning(f"Market {m_id} preview failed")
-
-
 # =====================================================
 # OTHER INPUTS
 # =====================================================
 st.header("💰 Net Profit")
 st.text_area("Paste Net Profit", key="input_net_profit", height=200)
 
+st.header("Production/Inventory")
+st.text_area("Paste Production/Inventory", key="input_production", height=200)
 
 # =====================================================
 # SAVE LOGIC (CLEAN)
 # =====================================================
 def save_round():
+
+    if st.session_state.get("input_net_profit") == "":
+        st.error("Net profit is empty")
+    if st.session_state.get("input_production") == "":
+        st.error("Production/Inventory is empty")
 
     raw_text = st.session_state.get("input_all_markets", "").strip()
     market_blocks = split_markets(raw_text)
@@ -100,7 +93,6 @@ def save_round():
     net_profit_text = st.session_state.get(
         "input_net_profit", ""
     ).strip()
-
     try:
         round_service.save_round(
             game_id=game_id,

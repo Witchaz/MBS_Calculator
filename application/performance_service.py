@@ -1,5 +1,5 @@
 import pandas as pd
-
+import numpy as np
 
 class PerformanceService:
 
@@ -23,11 +23,10 @@ class PerformanceService:
         )
 
         df["revenue"] = df["price"] * df["sales_volume"]
-
+        
         return df
 
     def get_round_summary(self, df_round: pd.DataFrame):
-
         df_summary = (
             df_round
             .groupby("company", as_index=False)
@@ -38,11 +37,12 @@ class PerformanceService:
             })
         )
 
-        df_summary["rank"] = (
+        df_summary["Net profit"] = (
             df_summary["Net profit"]
-            .rank(ascending=False, method="min")
-            .astype(int)
+            .replace([np.inf, -np.inf], np.nan)
+            .fillna(-1e12)   # ให้บริษัทที่ไม่มี profit ไปอยู่ล่างสุด
         )
+
 
         return df_summary
 

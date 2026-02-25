@@ -14,10 +14,6 @@ class RoundService:
         market_blocks: dict,
         net_profit_text: str | None,
     ):
-        import pandas as pd
-        from domain.parsers import parse_market_text, parse_net_profit_text
-        from domain.feature_engineering import prepare_features
-
         round_dfs = []
 
         for market_id, market_text in market_blocks.items():
@@ -26,8 +22,7 @@ class RoundService:
                 round_number=round_number
             )
             df = prepare_features(
-                df,
-                round_number=round_number
+                df
             )
             df["market_id"] = market_id
             round_dfs.append(df)
@@ -43,7 +38,6 @@ class RoundService:
                 net_profit_text,
                 round_number
             )
-
         self.repo.save_round(
             game_id,
             round_number,
