@@ -59,3 +59,26 @@ class PerformanceService:
         )
 
         return df_metric
+
+    def compute_weighted_average(
+        self,
+        df: pd.DataFrame,
+        value_col: str,
+        weight_col: str
+    ):
+        df = df.dropna(subset=[value_col, weight_col])
+
+        total_weight = df[weight_col].sum()
+
+        if total_weight == 0:
+            return 0
+        
+        return (
+            (df[value_col] * df[weight_col]).sum()
+            / total_weight
+        )
+    
+    def to_scalar(self,value):
+        if isinstance(value, pd.Series):
+            value = value.iloc[0]
+        return float(value)

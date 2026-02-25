@@ -75,15 +75,14 @@ for round_tab, Round in zip(round_tabs, rounds):
                 leader = df_metric.iloc[0]
                 market_avg = df_metric[metric].mean()
 
-                our_row = df_metric[
+                our_row = df_metric.loc[
                     df_metric["company"] == company_name
-                ]
+                ].iloc[0]
 
                 if our_row.empty:
                     continue
-
-                our_value = our_row[metric].iloc[0]
-                our_rank = int(our_row["rank"].iloc[0])
+                our_value = our_row[metric]
+                our_rank = int(our_row["rank"])
                 market_total = df_metric[metric].sum()
 
                 pct_vs_leader = (
@@ -187,3 +186,94 @@ for round_tab, Round in zip(round_tabs, rounds):
                         c1, c2 = st.columns(2)
                         c1.metric("Vs Leader", f"{pct_vs_leader:+.2f}%")
                         c2.metric("Vs Avg", f"{pct_vs_avg:+.2f}%")
+
+                        # ================= TOP / MIDDLE / BOTTOM 3 (WITH TEAM NAMES) =================
+
+                        st.markdown("---")
+                        st.markdown("### Distribution Snapshot (Unweighted)")
+
+                        if metric in df_market.columns:
+
+                            df_sorted = (
+                                df_market
+                                .dropna(subset=[metric])
+                                .sort_values(by=metric, ascending=False)
+                                .reset_index(drop=True)
+                            )
+
+                            n = len(df_sorted)
+
+                            if n >= 3:
+
+                                top3 = df_sorted.head(3)
+
+                                bottom3 = df_sorted.tail(3).sort_values(
+                                    by=metric,
+                                    ascending=False
+                                )
+
+                                # middle 3 logic
+                                if n >= 6:
+                                    mid_start = (n // 2) - 1
+                                    middle3 = df_sorted.iloc[mid_start:mid_start+3]
+                                else:
+                                    middle3 = df_sorted.iloc[max(0, n//2-1):n//2+2]
+
+                                col_t, col_m, col_b = st.columns(3)
+
+                                # ---- TOP 3 ----
+                                with col_t:
+                                    st.markdown("#### 🔼 Top 3")
+                                    for _, row in top3.iterrows():
+                                        st.write(
+                                            f"{row['company']} — {row[metric]:,.2f}"
+                                        )
+
+                                # ---- MIDDLE 3 ----
+                                with col_m:
+                                    st.markdown("#### ⚖ Middle 3")
+                                    for _, row in middle3.iterrows():
+                                        st.write(
+                                            f"{row['company']} — {row[metric]:,.2f}"
+                                        )
+
+                                # ---- BOTTOM 3 ----
+                                with col_b:
+                                    st.markdown("#### 🔽 Bottom 3")
+                                    for _, row in bottom3.iterrows():
+                                        st.write(
+                                            f"{row['company']} — {row[metric]:,.2f}"
+                                        )
+                        # ================= ROW 3 : MARKET WEIGHTED AVG =================
+
+                        weighted_applicable_metrics = [
+                            "price",
+                            "product_quality",
+                            "product_image"
+                        ]
+
+                        if metric in weighted_applicable_metrics:
+
+                            weighted_value = service.compute_weighted_average(
+                                df_market,
+                                value_col=metric,
+                                weight_col="sales_volume"
+                            )
+                            weighted_value = service.to_scalar(weighted_value)
+                            our_value = service.to_scalar(our_row[metric])
+                            
+                            st.markdown("---")
+                            col_w1, col_w2 = st.columns([1,1])
+
+                            col_w1.metric(
+                                "Market Weighted Avg",
+                                f"{weighted_value:,.2f}"
+                            )
+                            
+                            # Optional: gap vs our value
+                            if metric in our_row:
+                                gap = our_value - weighted_value
+                                col_w2.metric(
+                                    "Gap vs Market",
+                                    f"{gap:+.2f}"
+                                )
