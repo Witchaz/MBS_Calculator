@@ -44,6 +44,24 @@ rounds = sorted(df["round"].unique())
 round_tabs = st.tabs([f"Round {r}" for r in rounds])
 
 
+metrics_summary = ["Net profit", "revenue", "sales_volume"]
+columns_to_show = [
+"company",
+"product_quality",
+"product_image",
+"sales_volume",
+"price",
+"revenue"
+]
+metrics = [
+"price",
+"product_quality",
+"product_image",
+"revenue",
+"sales_volume",
+"market_share"
+]
+
 # =====================================================
 # MAIN LOOP
 # =====================================================
@@ -57,9 +75,11 @@ for round_tab, Round in zip(round_tabs, rounds):
         df_summary = service.get_round_summary(df_round)
 
         st.subheader("📊 Round Summary")
-        st.dataframe(df_summary, width="stretch")
-
-        metrics_summary = ["Net profit", "revenue", "sales_volume"]
+        st.dataframe(df_summary.style.format({
+        "Net profit": "{:,.2f}",
+        "revenue": "{:,.2f}",
+        "sales_volume": "{:,.0f}"
+    }), width="stretch",)
 
         for metric in metrics_summary:
 
@@ -126,17 +146,14 @@ for round_tab, Round in zip(round_tabs, rounds):
                 df_market = df_round[
                     df_round["market_id"] == market
                 ]
-
-                st.dataframe(df_market, width="stretch")
-
-                metrics = [
-                    "price",
-                    "product_quality",
-                    "product_image",
-                    "revenue",
-                    "sales_volume",
-                    "market_share"
-                ]
+                df_show = df_market[columns_to_show]
+                st.dataframe(df_show.style.format({
+                    "product_quality":"{:.2f}",
+                    "product_image":"{:.2f}",
+                    "price":"{:.2f}",
+                    "sales_volume":"{:,.0f}",
+                    "revenue" :"{:,.2f}"
+                }), width="stretch")
 
                 for metric in metrics:
 
