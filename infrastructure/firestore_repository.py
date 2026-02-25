@@ -43,7 +43,8 @@ class FirestoreRepository:
 
     def save_round(self, game_id, round_number,
                    market_df: pd.DataFrame,
-                   profit_df: pd.DataFrame):
+                   profit_df: pd.DataFrame,
+                   production_df:pd.DataFrame):
 
         round_ref = (
             self.db.collection("mbs_games")
@@ -55,9 +56,9 @@ class FirestoreRepository:
             "round_number": round_number,
             "market_data": market_df.to_dict("records"),
             "net_profit": profit_df.to_dict("records"),
+            "production":production_df,
             "updated_at": datetime.utcnow()
         })
-
         self.db.collection("mbs_games").document(game_id).update({
             "updated_at": datetime.utcnow()
         })
@@ -105,8 +106,7 @@ class FirestoreRepository:
 
         if df_profit.empty:
             return df_market
-        print(df_market)
-        print(df_profit)
+        
         return pd.merge(
             df_market,
             df_profit,

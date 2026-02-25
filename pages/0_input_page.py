@@ -93,12 +93,15 @@ def save_round():
     net_profit_text = st.session_state.get(
         "input_net_profit", ""
     ).strip()
+
+    production_text = st.session_state.get("input_production","").strip()
     try:
         round_service.save_round(
             game_id=game_id,
             round_number=round_number,
             market_blocks=market_blocks,
-            net_profit_text=net_profit_text
+            net_profit_text=net_profit_text,
+            production_text=production_text
         )
 
         st.success(f"Round {round_number} saved successfully.")

@@ -96,7 +96,6 @@ def parse_net_profit_text(raw_text: str, round_number: int) -> pd.DataFrame:
 
     df.rename(columns={"Company":"company"},inplace=True)
     df["round"] = int(round_number)
-    print(df)
     return df
 
 def parse_multi_round_table(raw_text: str) -> pd.DataFrame:
@@ -116,3 +115,36 @@ def parse_multi_round_table(raw_text: str) -> pd.DataFrame:
         df[col] = pd.to_numeric(df[col], errors="ignore")
 
     return df
+
+def parse_round_production_dataframe(raw_text):
+    """
+    รับ DataFrame ที่มี column:
+    Round, Sales volume, Production volume, ...
+    แล้วคืน list ของ round documents (denormalized)
+    """
+    raw_text = raw_text.replace(",","")
+    round_docs = []
+    df = pd.read_csv(
+    StringIO(raw_text),
+    sep="\t")
+    for _, row in df.iterrows():
+
+        round_doc = {
+            "round_number": int(row["Round"]),
+            "sales_volume": int(row["Sales volume"]),
+            "production_volume": int(row["Production volume"]),
+            "next_production_capacity": int(row["Next production capacity"]),
+            "raw_material_inventory": int(row["Raw material inventory"]),
+            "finished_goods_inventory_total": int(
+                row["Finished goods inventory(Total)"]
+            ),
+            "market_sales": {
+                "1": int(row["Market 1"]),
+                "2": int(row["Market 2"]),
+                "3": int(row["Market 3"]),
+                "4": int(row["Market 4"]),
+            }
+        }
+
+        round_docs.append(round_doc)
+    return round_docs
