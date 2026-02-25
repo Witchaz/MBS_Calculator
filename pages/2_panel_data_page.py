@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from core.datastore import DataStore
-from mbs_utils import parse_game_text, prepare_features, run_fixed_effects, run_pooled_ols
+from domain.econimetrics import run_fixed_effects, run_pooled_ols
 
 
 if "data_store" not in st.session_state:

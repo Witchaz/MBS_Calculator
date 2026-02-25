@@ -1,221 +1,121 @@
 import streamlit as st
 import pandas as pd
 import re
-
-from core.datastore import DataStore
-from mbs_utils import parse_game_text, prepare_features
 from io import StringIO
 
-def split_markets(raw_text: str):
-    markets = re.split(r"(Market \d+)", raw_text)
-    
-    result = {}
-    for i in range(1, len(markets), 2):
-        market_name = markets[i].strip()  # Market 1
-        market_body = markets[i+1].strip()
-        market_id = int(market_name.split()[1])
-        result[market_id] = market_name + "\n" + market_body
+from infrastructure.firebase_client import init_firebase
+from infrastructure.firestore_repository import FirestoreRepository
+from application.round_service import RoundService
 
-    return result
 
-# ----------------------------------
-# REQUIRE GAME SELECTION
-# ----------------------------------
+# =====================================================
+# INIT SERVICES
+# =====================================================
+@st.cache_resource
+def get_round_service():
+    db = init_firebase()
+    repo = FirestoreRepository(db)
+    return RoundService(repo)
+
+
+round_service = get_round_service()
+
+
+# =====================================================
+# REQUIRE GAME
+# =====================================================
 if "game_id" not in st.session_state:
     st.error("Please select a game from Home page first.")
     st.stop()
 
-# sync game_id เข้า datastore
-st.session_state["datastore"].game_id = st.session_state["game_id"]
-# -------------------------
-# INIT DATASTORE
-# -------------------------
-if "datastore" not in st.session_state:
-    st.session_state["datastore"] = DataStore()
+game_id = st.session_state["game_id"]
 
-if "company_name" not in st.session_state:
-    st.session_state["company_name"] = ""
 
-if "round_number_input" not in st.session_state:
-    st.session_state["round_number_input"] = 1
-
-ds = st.session_state["datastore"]
-
-# sync จาก datastore ถ้ามีค่า
-if ds.get_company_name(ds.game_id) != "" :
-    st.session_state["company_name"] = \
-        ds.get_company_name(ds.game_id)
-
-if ds.get_round_number() != 1:
-    st.session_state["round_number_input"] = \
-        ds.get_round_number()
-
-# -------------------------
+# =====================================================
 # ROUND INPUT
-# -------------------------
+# =====================================================
 round_number = st.number_input(
     "Round number",
     min_value=1,
     step=1,
     key="input_round_number",
-    value=st.session_state["round_number_input"]
+    value=st.session_state.get("input_round_number", 1)
 )
 
-with st.expander("ℹ️ Debug Info", expanded=False):
-    st.write(st.session_state)
 
 # =====================================================
-# 1️⃣ MARKET INPUT SECTION
+# MARKET SPLITTER
 # =====================================================
-
-def parse_all_markets(raw_text):
+def split_markets(raw_text: str):
     markets = {}
+    blocks = re.split(r"Market\s+(\d+)", raw_text)
 
-    # Split by Market blocks
-    blocks = re.split(r"Market\s+\d+", raw_text)
-    market_ids = re.findall(r"Market\s+(\d+)", raw_text)
-
-    for market_id, block in zip(market_ids, blocks[1:]):  
-        block = block.strip()
-        if not block:
-            continue
-
-        # Convert block to dataframe
-        df = pd.read_csv(
-            StringIO(block),
-            sep="\t"
-        )
-
-        # Clean columns
-        df.columns = df.columns.str.strip()
-
-        # Clean numeric columns
-        if "Price" in df.columns:
-            df["Price"] = df["Price"].replace("[\$,]", "", regex=True).astype(float)
-
-        if "Sales volume" in df.columns:
-            df["Sales volume"] = df["Sales volume"].replace(",", "", regex=True).astype(float)
-
-        if "Market share" in df.columns:
-            df["Market share"] = df["Market share"].replace("%", "", regex=True).astype(float)
-
-        markets[int(market_id)] = df
+    for i in range(1, len(blocks), 2):
+        market_id = int(blocks[i])
+        market_body = blocks[i + 1].strip()
+        markets[market_id] = market_body
 
     return markets
 
 
+# =====================================================
+# 1️⃣ MARKET SECTION
+# =====================================================
 st.header("📊 Market Sale Status")
 
-raw_text = st.text_area(
+raw_market_text = st.text_area(
     "Paste All Market Data",
     key="input_all_markets",
     height=400
 )
 
-if raw_text:
-    market_data = parse_all_markets(raw_text)
+if raw_market_text:
+    preview_markets = split_markets(raw_market_text)
 
-    for m, df in market_data.items():
-        st.write(f"Market {m}")
-        st.dataframe(df)
-        st.session_state[f"input_market_{m}"] = raw_text  # store raw text for each market
+    for m_id, m_text in preview_markets.items():
+        try:
+            df_preview = pd.read_csv(StringIO(m_text), sep="\t")
+            df_preview.columns = df_preview.columns.str.strip()
+            st.subheader(f"Market {m_id}")
+            st.dataframe(df_preview)
+        except Exception:
+            st.warning(f"Market {m_id} preview failed")
 
 
 # =====================================================
-# 2️ NET PROFIT SECTION
+# OTHER INPUTS
 # =====================================================
 st.header("💰 Net Profit")
-
-st.text_area(
-    "Paste Net Profit",
-    key="input_net_profit",
-    height=200
-)
+st.text_area("Paste Net Profit", key="input_net_profit", height=200)
 
 
 # =====================================================
-#  POTENTIAL DEMAND SECTION
+# SAVE LOGIC (CLEAN)
 # =====================================================
-'''st.header("💰 Potential Demand")
-
-st.text_area(
-    "Paste Potential Demand",
-    key="input_potential_demand",
-    height=200
-)'''
-
 def save_round():
 
-    datastore = st.session_state["datastore"]
-    round_number = st.session_state["input_round_number"]
-    datastore.set_round_number(round_number)
-
-    round_dfs = []
-
-    # -------------------------
-    # Process Markets
-    # -------------------------
     raw_text = st.session_state.get("input_all_markets", "").strip()
-    
-    all_markets = split_markets(raw_text)
+    market_blocks = split_markets(raw_text)
 
-    for market_id, market_text in all_markets.items():
-        df = parse_game_text(market_text, round_number=round_number)
-        df = prepare_features(df, round_number=round_number)
-        df["market_id"] = market_id
-        round_dfs.append(df)
-    # รวม dataframe ของรอบนี้
-    round_df = pd.concat(round_dfs, ignore_index=True)
+    net_profit_text = st.session_state.get(
+        "input_net_profit", ""
+    ).strip()
 
-    # overwrite รอบนี้แทน append
-    datastore.round_dfs = [round_df]
-
-    # -------------------------
-    # Net Profit
-    # -------------------------
-    net_profit_text = st.session_state["input_net_profit"].strip()
-
-    datastore.round_net_profit = []  # reset ก่อน
-
-    if net_profit_text != "":
-        datastore.add_net_profit_text(
+    try:
+        round_service.save_round(
+            game_id=game_id,
             round_number=round_number,
-            raw_text=net_profit_text
+            market_blocks=market_blocks,
+            net_profit_text=net_profit_text
         )
-    
-    # -------------------------
-    # Potential Demand
-    # -------------------------
-    '''
-    potential_demand_text = st.session_state["input_potential_demand"].strip()
 
-    datastore.round_potential_demand = []  # reset ก่อน
+        st.success(f"Round {round_number} saved successfully.")
 
-    if potential_demand_text != "":
-        datastore.add_potential_demand_text(
-            round_number=round_number,
-            raw_text=potential_demand_text
-        )
-    '''
-    # -------------------------
-    # 🔥 SAVE TO FIRESTORE
-    # -------------------------
-    datastore.save_current_round()
+        st.session_state["input_round_number"] = round_number + 1
+        st.rerun()
 
-    # -------------------------
-    # RESET INPUTS
-    # -------------------------
-    for i in range(1, 5):
-        st.session_state[f"input_market_{i}"] = ""
+    except Exception as e:
+        st.error(str(e))
 
-    st.session_state["input_net_profit"] = ""
-
-    st.success(f"Round {round_number} saved to Firebase.")
-    
-    # auto next round
-    st.session_state["round_number_input"] += 1
-    datastore.add_round_number(1)
-
-    st.rerun()
 
 st.button("Save Round", on_click=save_round)

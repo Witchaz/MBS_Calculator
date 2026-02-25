@@ -4,7 +4,7 @@ import os
 import firebase_admin
 from io import StringIO
 from datetime import datetime
-from mbs_utils import parse_net_profit_text
+from domain.parsers import parse_net_profit_text
 from firebase_admin import credentials, firestore
 
 
@@ -16,6 +16,7 @@ class DataStore:
         self.round_number = 1
         self.round_net_profit = []
         self.round_potential_demand = []
+        self.round_label_cost = []
         self.game_id = game_id
 
         # -------------------------
@@ -41,7 +42,7 @@ class DataStore:
                     firebase_admin.initialize_app(cred)
 
             self.db = firestore.client()
-            print("Done")
+            
 
         except Exception as e:
             st.error(f"Firebase init error: {e}")
@@ -57,6 +58,7 @@ class DataStore:
         self.db.collection("mbs_games").document(game_id).set({
             "company_name" : company_name, 
             "created_at": datetime.utcnow(),
+            "updated_at" : datetime.utcnow(),
             "status": "active"
         })
 
@@ -81,6 +83,12 @@ class DataStore:
             "market_data": df_market.to_dict(orient="records"),
             "net_profit": df_profit.to_dict(orient="records"),
             "updated_at": datetime.utcnow()
+        })
+
+        self.db.collection("mbs_games").document(self.game_id).update
+        ({
+            "updated_at" : datetime.utcnow(),
+            
         })
 
         print(f"Round {self.round_number} saved.")

@@ -34,6 +34,17 @@ if "datastore" not in st.session_state:
 
 ds = st.session_state.datastore
 
+
+# ==========================
+# SECTION 3: แสดงเกมปัจจุบัน
+# ==========================
+
+if "game_id" in st.session_state:
+    st.markdown(f"### 🎮 Current Game: `{st.session_state.game_id}`")
+else:
+    st.warning("No game selected.")
+
+st.divider()
 # ==========================
 # SECTION 1: เลือกเกมที่มีอยู่
 # ==========================
@@ -47,7 +58,7 @@ if games:
         "Choose a game",
         options=games
     )
-
+    
     if st.button("Load Game"):
         st.session_state.game_id = selected_game
         ds.game_id = selected_game
@@ -77,13 +88,3 @@ company_name = st.text_input("Comapany Name")
 if st.button("Create Game"):
     create_game(new_game_name,company_name)
 
-# ==========================
-# SECTION 3: แสดงเกมปัจจุบัน
-# ==========================
-
-st.divider()
-
-if "game_id" in st.session_state:
-    st.markdown(f"### 🎮 Current Game: `{st.session_state.game_id}`")
-else:
-    st.warning("No game selected.")

@@ -1,321 +1,189 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
 
-from core.datastore import DataStore
+from infrastructure.firebase_client import init_firebase
+from infrastructure.firestore_repository import FirestoreRepository
+from application.performance_service import PerformanceService
 
 
-# ---------- INIT SESSION ----------
+# =====================================================
+# INIT SERVICE
+# =====================================================
+@st.cache_resource
+def get_service():
+    db = init_firebase()
+    repo = FirestoreRepository(db)
+    return PerformanceService(repo)
 
-if "datastore" not in st.session_state:
-    st.session_state["datastore"] = DataStore()
-ds = st.session_state["datastore"]
 
+service = get_service()
+
+
+# =====================================================
+# REQUIRE GAME
+# =====================================================
 if "game_id" not in st.session_state:
     st.error("Please select a game first.")
     st.stop()
 
+game_id = st.session_state["game_id"]
+company_name = st.session_state.get("company_name", "")
 
-# -------------------------
-# REQUIRE GAME
-# -------------------------
-ds.game_id = st.session_state["game_id"]
 
-if ds.get_company_name(ds.game_id) != "":
-    st.session_state["company_name"] = \
-        ds.get_company_name(ds.game_id)
-
-# -------------------------
-# LOAD FROM FIREBASE
-# -------------------------
-df = ds.load_all_rounds_from_firebase()
+# =====================================================
+# LOAD DATA
+# =====================================================
+df = service.get_full_dataset(game_id)
 
 if df.empty:
     st.warning("No data found in this game.")
     st.stop()
 
-df = df.drop(
-    columns=["log_price","log_quality","log_marketing","log_share"],
-    errors="ignore"
-)
+
+rounds = sorted(df["round"].unique())
+round_tabs = st.tabs([f"Round {r}" for r in rounds])
 
 
-# ---------- COMPARISON ----------
-if st.session_state["company_name"] != "" and not df.empty:
+# =====================================================
+# MAIN LOOP
+# =====================================================
+for round_tab, Round in zip(round_tabs, rounds):
 
-    company_name = st.session_state["company_name"]
-    rounds = sorted(df["round"].unique())
+    with round_tab:
 
-    # ---------- ROUND TABS ----------
-    round_tabs = st.tabs([f"Round {r}" for r in rounds])
+        df_round = df[df["round"] == Round]
 
-    for round_tab, Round in zip(round_tabs, rounds):
+        # ================= ROUND SUMMARY =================
+        df_summary = service.get_round_summary(df_round)
 
-        with round_tab:
-            
-            df_round = df[df["round"] == Round]
-            markets = sorted(df_round["market_id"].unique())
+        st.subheader("📊 Round Summary")
+        st.dataframe(df_summary, width="stretch")
 
-            tab_names = ["📊 Market Summary"] + [f"Market {m}" for m in markets]
-            market_tabs = st.tabs(tab_names)
-            # ================= ROUND SUMMARY =================
-            with market_tabs[0]:
+        metrics_summary = ["Net profit", "revenue", "sales_volume"]
 
-                df_summary = df_round.copy()
+        for metric in metrics_summary:
 
-                # คำนวณ revenue ก่อน group
-                df_summary["revenue"] = df_summary["price"] * df_summary["sales_volume"]
-
-                df_summary = (
-                    df_summary
-                    .groupby("company", as_index=False)
-                    .agg({
-                        "Net profit": "mean",
-                        "revenue": "sum",
-                        "sales_volume": "sum"
-                    })
-                )
-                df_summary["rank"] = (
-                df_summary["Net profit"]
-                .rank(ascending=False, method="min")
-                .astype(int)
+            with st.expander(metric):
+                df_metric = service.compute_metric_table(
+                    df_summary,
+                    metric
                 )
 
-                if df_summary.empty:
-                    st.info("No data available.")
-                else:
-                    st.dataframe(df_summary, width="stretch")
-                    metrics_summary = ["Net profit", "revenue", "sales_volume"]
+                if df_metric.empty:
+                    continue
 
-                    for metric in metrics_summary:
+                leader = df_metric.iloc[0]
+                market_avg = df_metric[metric].mean()
 
-                        with st.expander(f"{metric.replace('_',' ')}", expanded=False):
+                our_row = df_metric[
+                    df_metric["company"] == company_name
+                ]
 
-                            st.markdown(f"## 📊 {metric.replace('_',' ')} (Round Total)")
+                if our_row.empty:
+                    continue
 
-                            df_metric = df_summary.copy()
+                our_value = our_row[metric].iloc[0]
+                our_rank = int(our_row["rank"].iloc[0])
+                market_total = df_metric[metric].sum()
 
-                            df_metric = df_metric.sort_values(metric, ascending=False)
+                pct_vs_leader = (
+                    (our_value - leader[metric]) /
+                    abs(leader[metric]) * 100
+                ) if leader[metric] != 0 else 0
 
-                            df_metric["rank"] = (
-                                df_metric[metric]
-                                .rank(ascending=False, method="min")
-                                .astype(int)
-                            )
+                pct_vs_avg = (
+                    (our_value - market_avg) /
+                    abs(market_avg) * 100
+                ) if market_avg != 0 else 0
 
-                            leader = df_metric.iloc[0]
-                            market_avg = df_metric[metric].mean()
+                # ================= KPI ROW 1 =================
+                k1, k2, k3, k4 = st.columns(4)
 
-                            our_row = df_metric[df_metric["company"] == company_name]
+                k1.metric("Leader", leader["company"])
+                k2.metric("Round Avg", f"{market_avg:,.2f}")
+                k3.metric("Our Rank", f"{our_rank}/{len(df_metric)}")
+                k4.metric("Our Value", f"{our_value:,.2f}")
 
-                            if our_row.empty:
-                                continue
+                # ================= KPI ROW 2 =================
+                c1, c2 = st.columns(2)
+                c1.metric("Vs Leader", f"{pct_vs_leader:+.2f}%")
+                c2.metric("Vs Avg", f"{pct_vs_avg:+.2f}%")
 
-                            our_value = our_row[metric].iloc[0]
-                            our_rank = int(our_row["rank"].iloc[0])
+                if metric in ["revenue", "sales_volume"]:
+                    st.divider()
+                    st.metric(
+                        "🌍 Market Total",
+                        f"{market_total:,.2f}"
+                    )
+        # ================= MARKET LEVEL =================
+        markets = sorted(df_round["market_id"].unique())
 
-                            pct_vs_leader = (
-                                (our_value - leader[metric]) / abs(leader[metric]) * 100
-                            ) if leader[metric] != 0 else 0
+        market_tabs = st.tabs([f"Market {m}" for m in markets])
 
-                            pct_vs_avg = (
-                                (our_value - market_avg) / abs(market_avg) * 100
-                            ) if market_avg != 0 else 0
+        for market_tab, market in zip(market_tabs, markets):
 
-                            # ================= KPI =================
-                            st.markdown("### 🏆 Round Overview")
+            with market_tab:
 
-                            k1, k2, k3, k4 = st.columns(4)
+                df_market = df_round[
+                    df_round["market_id"] == market
+                ]
 
-                            k1.metric("🏆 Leader", leader["company"])
-                            k2.metric("📈 Round Avg", f"{market_avg:,.2f}")
-                            k3.metric("🎯 Our Rank", f"{our_rank}/{len(df_metric)}")
-                            k4.metric("📊 Our Value", f"{our_value:,.2f}")
+                st.dataframe(df_market, width="stretch")
 
-                            c1, c2 = st.columns(2)
-                            c1.metric("Vs Leader", f"{pct_vs_leader:+.2f}%")
-                            c2.metric("Vs Round Avg", f"{pct_vs_avg:+.2f}%")
+                metrics = [
+                    "price",
+                    "product_quality",
+                    "product_image",
+                    "revenue",
+                    "sales_volume",
+                    "market_share"
+                ]
 
-                            st.divider()
+                for metric in metrics:
 
-                            # ================= CLOSEST TO AVG =================
-                            st.markdown("### 🎯 Closest to Round Average")
+                    if metric not in df_market.columns:
+                        continue
 
-                            df_metric["Diff_from_Avg"] = abs(df_metric[metric] - market_avg)
+                    with st.expander(metric):
 
-                            closest_teams = df_metric.sort_values("Diff_from_Avg").head(3)
-
-                            for _, row in closest_teams.iterrows():
-                                st.write(
-                                    f"{row['company']} — {row[metric]:,.2f} "
-                                    f"(Δ {row['Diff_from_Avg']:,.2f})"
-                                )
-
-                            st.divider()
-
-                            # ================= TOP / BOTTOM =================
-                            left, right = st.columns(2)
-
-                            with left:
-                                st.markdown("### 🔥 Top 3")
-                                for _, row in df_metric.head(3).iterrows():
-                                    st.write(
-                                        f"{row['rank']}. {row['company']} — {row[metric]:,.2f}"
-                                    )
-
-                            with right:
-                                st.markdown("### 🔻 Bottom 3")
-                                for _, row in df_metric.tail(3).iterrows():
-                                    st.write(
-                                        f"{row['rank']}. {row['company']} — {row[metric]:,.2f}"
-                                    )
-
-                            st.divider()
-
-                            # ================= FULL TABLE =================
-                            st.markdown("### 📋 Full Ranking")
-
-                            with st.expander("See full ranking table", expanded=False):
-                                st.dataframe(
-                                    df_metric.sort_values("rank"),
-                                    width="stretch"
-                                )
-
-                            st.divider()
-                    # ---------- MARKET TABS ----------
-
-                    for market_tab, market in zip(market_tabs[1:], markets):
-
-                        with market_tab:
-
-                            df_market = df_round[
-                                df_round["market_id"] == market
-                            ].copy()
-
-                            if df_market.empty:
-                                st.info("No data available.")
-                                continue
-
-                            my_row = df_market[
-                                df_market["company"] == company_name
-                            ]
-
-                            if my_row.empty:
-                                st.info(f"{company_name} not found in this market.")
-                                continue
-
-                            my_profit = my_row["Net profit"].iloc[0]
-
-                            df_market = df_market.dropna(subset=["Net profit"])
-
-                            df_market["rank"] = (
-                            df_market["Net profit"]
-                            .rank(ascending=False, method="min")
-                            .astype(int)
+                        df_metric = service.compute_metric_table(
+                            df_market,
+                            metric
                         )
 
+                        if df_metric.empty:
+                            continue
 
-                            df_market = df_market.sort_values(
-                                "Net profit", ascending=False
-                            )
+                        leader = df_metric.iloc[0]
+                        market_avg = df_metric[metric].mean()
 
-                            df_market["revenue"] = df_market["price"] * df_market["sales_volume"]
-                            st.dataframe(df_market, width='stretch')
-                            
-                            
-                            # ================= DASHBOARD SUMMARY =================
+                        our_row = df_metric[
+                            df_metric["company"] == company_name
+                        ]
 
-                            metrics = ["product_image", "product_quality", "revenue", "price", "market_share"]
+                        if our_row.empty:
+                            continue
 
-                            for metric in metrics:
+                        our_value = our_row[metric].iloc[0]
+                        our_rank = int(our_row["rank"].iloc[0])
 
-                                if metric not in df_market.columns:
-                                    continue
-                                with st.expander(f"{metric.replace('_',' ')}"):
-                                    st.markdown(f"## 📊 {metric.replace('_',' ')}")
+                        pct_vs_leader = (
+                            (our_value - leader[metric]) /
+                            abs(leader[metric]) * 100
+                        ) if leader[metric] != 0 else 0
 
-                                    df_metric = df_market.dropna(subset=[metric]).copy()
+                        pct_vs_avg = (
+                            (our_value - market_avg) /
+                            abs(market_avg) * 100
+                        ) if market_avg != 0 else 0
 
-                                    if df_metric.empty:
-                                        st.info("No data available.")
-                                        continue
+                        k1, k2, k3, k4 = st.columns(4)
 
-                                    # ---------------- SORT + RANK ----------------
-                                    df_metric = df_metric.sort_values(metric, ascending=False)
+                        k1.metric("Leader", leader["company"])
+                        k2.metric("Market Avg", f"{market_avg:,.2f}")
+                        k3.metric("Our Rank", f"{our_rank}/{len(df_metric)}")
+                        k4.metric("Our Value", f"{our_value:,.2f}")
 
-                                    df_metric["rank"] = (
-                                        df_metric[metric]
-                                        .rank(ascending=False, method="min")
-                                        .astype(int)
-                                    )
-
-                                    leader = df_metric.iloc[0]
-                                    market_avg = df_metric[metric].mean()
-
-                                    our_row = df_metric[df_metric["company"] == company_name]
-
-                                    if our_row.empty:
-                                        continue
-
-                                    our_value = our_row[metric].iloc[0]
-                                    our_rank = int(our_row["rank"].iloc[0])
-
-                                    pct_vs_leader = ((our_value - leader[metric]) / abs(leader[metric]) * 100) if leader[metric] != 0 else 0
-                                    pct_vs_avg = ((our_value - market_avg) / abs(market_avg) * 100) if market_avg != 0 else 0
-
-                                    # ================= KPI SECTION =================
-                                    st.markdown("### 🏆 Market Overview")
-
-                                    k1, k2, k3, k4 = st.columns(4)
-
-                                    k1.metric("🏆 Market Leader", leader["company"])
-                                    k2.metric("📈 Market Avg", f"{market_avg:,.2f}")
-                                    k3.metric("🎯 Our Rank", f"{our_rank}/{len(df_metric)}")
-                                    k4.metric("📊 Our Value", f"{our_value:,.2f}")
-
-                                    c1, c2 = st.columns(2)
-                                    c1.metric("Vs Leader", f"{pct_vs_leader:+.2f}%")
-                                    c2.metric("Vs Market Avg", f"{pct_vs_avg:+.2f}%")
-
-                                    st.divider()
-
-                                    # ================= CLOSEST TO AVERAGE =================
-                                    st.markdown("### 🎯 Closest to Market Average")
-
-                                    df_metric["Diff_from_Avg"] = abs(df_metric[metric] - market_avg)
-
-                                    closest_teams = df_metric.sort_values("Diff_from_Avg").head(3)
-
-                                    for _, row in closest_teams.iterrows():
-                                        st.write(
-                                            f"{row['company']} — {row[metric]:,.2f} "
-                                            f"(Δ {row['Diff_from_Avg']:,.2f})"
-                                        )
-
-                                    st.divider()
-
-                                    # ================= TOP / BOTTOM =================
-                                    left, right = st.columns(2)
-
-                                    with left:
-                                        st.markdown("### 🔥 Top 3")
-                                        for _, row in df_metric.head(3).iterrows():
-                                            st.write(f"{row['rank']}. {row['company']} — {row[metric]:,.2f}")
-
-                                    with right:
-                                        st.markdown("### 🔻 Bottom 3")
-                                        for _, row in df_metric.tail(3).iterrows():
-                                            st.write(f"{row['rank']}. {row['company']} — {row[metric]:,.2f}")
-
-                                    st.divider()
-
-                                    # ================= FULL TABLE =================
-                                    st.markdown("### 📋 Full Ranking")
-                                    with st.expander("See full ranking table", expanded=False):
-                                        st.dataframe(
-                                            df_metric.sort_values("rank"),
-                                            width='stretch'
-                                        )
-
-                                    st.divider()
+                        c1, c2 = st.columns(2)
+                        c1.metric("Vs Leader", f"{pct_vs_leader:+.2f}%")
+                        c2.metric("Vs Avg", f"{pct_vs_avg:+.2f}%")
