@@ -18,7 +18,6 @@ def get_service():
 
 service = get_service()
 
-
 # =====================================================
 # REQUIRE GAME
 # =====================================================
@@ -93,7 +92,6 @@ for round_tab, Round in zip(round_tabs, rounds):
 
                 leader = df_metric.iloc[0]
                 market_avg = df_metric[metric].mean()
-
                 our_row = df_metric.loc[
                     df_metric["company"] == company_name
                 ].iloc[0]

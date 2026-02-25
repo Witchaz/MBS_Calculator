@@ -62,12 +62,7 @@ if games:
     if st.button("Load Game"):
         st.session_state.game_id = selected_game
         ds.game_id = selected_game
-        if "company_name" not in st.session_state:
-            st.session_state["company_name"] = (
-                st.session_state["datastore"]
-                .get_company_name(st.session_state["game_id"])
-                or ""
-            )
+        st.session_state["company_name"] = (st.session_state["datastore"].get_company_name(st.session_state["game_id"]))
         st.success(f"Loaded game: {selected_game}")
         st.rerun()
 else:
