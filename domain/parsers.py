@@ -138,7 +138,7 @@ def parse_round_production_dataframe(raw_text):
             "finished_goods_inventory_total": int(
                 row["Finished goods inventory(Total)"]
             ),
-            "market_sales": {
+            "fg_inventory": {
                 "1": int(row["Market 1"]),
                 "2": int(row["Market 2"]),
                 "3": int(row["Market 3"]),
