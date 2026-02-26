@@ -113,3 +113,19 @@ class FirestoreRepository:
             on=["company", "round"],
             how="left"
         )
+    
+    def load_round_raw(self, game_id, round_number):
+
+        doc_ref = (
+            self.db.collection("mbs_games")
+            .document(game_id)
+            .collection("rounds")
+            .document(f"round_{round_number}")
+        )
+
+        doc = doc_ref.get()
+
+        if not doc.exists:
+            return None
+
+        return doc.to_dict()
