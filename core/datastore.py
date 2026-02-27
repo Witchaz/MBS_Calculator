@@ -119,8 +119,19 @@ class DataStore:
             print("Round not found")
 
     def list_games(self):
-        games = self.db.collection("mbs_games").stream()
-        return [g.id for g in games]
+        games = (
+            self.db.collection("mbs_games")
+            .order_by("updated_at", direction=firestore.Query.DESCENDING)
+            .stream()
+        )
+
+        return [
+            {
+                "game_id": g.id,
+                "updated_at": g.get("updated_at")
+            }
+            for g in games
+        ]
 
     def list_rounds(self):
         rounds = (

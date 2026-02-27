@@ -45,29 +45,50 @@ else:
     st.warning("No game selected.")
 
 st.divider()
+
 # ==========================
 # SECTION 1: เลือกเกมที่มีอยู่
 # ==========================
 
-st.subheader("📂 Select Existing Game")
+with st.container():
 
-games = ds.list_games()
+    st.subheader("📂 Select Existing Game")
 
-if games:
-    selected_game = st.selectbox(
-        "Choose a game",
-        options=games
-    )
-    
-    if st.button("Load Game"):
-        st.session_state.game_id = selected_game
-        ds.game_id = selected_game
-        st.session_state["company_name"] = (st.session_state["datastore"].get_company_name(st.session_state["game_id"]))
-        st.success(f"Loaded game: {selected_game}")
-        st.rerun()
-else:
-    st.info("No existing games found.")
+    games = ds.list_games()
 
+    if games:
+
+        # ทำ label ให้แสดงวันที่ด้วย
+        game_options = {}
+
+        for g in games:
+
+            ts = g["updated_at"]
+            label = f"{g['game_id']}"
+            game_options[label] = g["game_id"]
+
+        selected_label = st.selectbox(
+            "Choose a game",
+            options=list(game_options.keys())
+        )
+
+        if st.button("Load Game"):
+
+            selected_game = game_options[selected_label]
+
+            st.session_state.game_id = selected_game
+            ds.game_id = selected_game
+
+            st.session_state["company_name"] = (
+                st.session_state["datastore"]
+                .get_company_name(selected_game)
+            )
+
+            st.success(f"Loaded game: {selected_game}")
+            st.rerun()
+
+    else:
+        st.info("No existing games found.")
 
 
 # ==========================
