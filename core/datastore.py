@@ -52,13 +52,17 @@ class DataStore:
     # 🔥 FIRESTORE METHODS
     # =====================================================
 
-    def create_new_game(self, game_id,company_name):
+    def create_new_game(self, game_id, company_name, seasonal_indicator):
+
         self.game_id = game_id
 
+        now = datetime.utcnow()
+
         self.db.collection("mbs_games").document(game_id).set({
-            "company_name" : company_name, 
-            "created_at": datetime.utcnow(),
-            "updated_at" : datetime.utcnow(),
+            "company_name": company_name,
+            "seasonal_indicator": seasonal_indicator,
+            "created_at": now,
+            "updated_at": now,
             "status": "active"
         })
 

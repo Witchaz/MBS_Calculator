@@ -7,20 +7,24 @@ st.set_page_config(page_title="MBS Game Manager", layout="wide")
 st.title("📊 MBS Game Manager")
 
 
-def create_game(new_game_name,company_name):
+def create_game(new_game_name, company_name, seasonal_indicator):
+
     if company_name.strip() == "":
-        st.error(f"company name is empty")
+        st.error("company name is empty")
         return
+
     if new_game_name.strip() == "":
-        # ถ้าไม่ตั้งชื่อ → auto generate
         new_game_name = f"game_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
 
-    ds.create_new_game(new_game_name,company_name)
+    ds.create_new_game(
+        game_id=new_game_name,
+        company_name=company_name,
+        seasonal_indicator=seasonal_indicator
+    )
 
     st.session_state.game_id = new_game_name
     ds.game_id = new_game_name
     ds.set_company_name(company_name)
-    
 
     st.success(f"Game created: {new_game_name}")
     st.rerun()
@@ -82,7 +86,7 @@ with st.container():
             st.session_state["company_name"] = (
                 st.session_state["datastore"]
                 .get_company_name(selected_game)
-            )
+            )            
 
             st.success(f"Loaded game: {selected_game}")
             st.rerun()
@@ -101,6 +105,25 @@ st.subheader("➕ Create New Game")
 new_game_name = st.text_input("Game Name (optional)")
 company_name = st.text_input("Comapany Name")
 
+c1, c2, c3, c4 = st.columns(4)
+
+c1.number_input("Spring",value = 100,key = "spring_input")
+c2.number_input("Summer",value = 100,key = "Summer_input")
+c1.number_input("Autumn",value = 100,key = "Autumn_input")
+c2.number_input("Winter",value = 100,key = "Winter_input")
+
 if st.button("Create Game"):
-    create_game(new_game_name,company_name)
+
+    seasonal_indicator = {
+        "spring": st.session_state["spring_input"],
+        "summer": st.session_state["Summer_input"],
+        "autumn": st.session_state["Autumn_input"],
+        "winter": st.session_state["Winter_input"],
+    }
+
+    create_game(
+        new_game_name,
+        company_name,
+        seasonal_indicator
+    )
 
