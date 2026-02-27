@@ -98,12 +98,12 @@ class FirestoreRepository:
 
         all_market = []
         all_profit = []
-
+        
         for doc in rounds_ref:
             data = doc.to_dict()
             all_market.extend(data.get("market_data", []))
             all_profit.extend(data.get("net_profit", []))
-
+        
         df_market = pd.DataFrame(all_market)
         df_profit = pd.DataFrame(all_profit)
 
@@ -132,3 +132,5 @@ class FirestoreRepository:
             return None
 
         return doc.to_dict()
+    
+    

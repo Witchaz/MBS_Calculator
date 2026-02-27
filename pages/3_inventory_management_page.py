@@ -4,13 +4,19 @@ import streamlit as st
 from infrastructure.firebase_client import init_firebase
 from infrastructure.firestore_repository import FirestoreRepository
 from application.inventory_planning_service import InventoryPlanningService
-
+from application.potential_demand_service import DemandService
 
 @st.cache_resource
-def get_service():
+def get_inventory_service():
     db = init_firebase()
     repo = FirestoreRepository(db)
     return InventoryPlanningService(repo)
+
+@st.cache_resource
+def get_potential_demand_service():
+    db = init_firebase()
+    repo = FirestoreRepository(db)
+    return DemandService(repo)
 
 # =====================================================
 # REQUIRE GAME
@@ -21,14 +27,16 @@ if "game_id" not in st.session_state:
 
 game_id = st.session_state["game_id"]
 
-service = get_service()
+inventory_service = get_inventory_service()
+potential_demand_service = get_potential_demand_service()
 
-df = service.get_full_dataset(game_id)
+df = inventory_service.get_full_dataset(game_id)
 
 if df.empty:
     st.warning("No data found.")
     st.stop()
-
+st.expander("debug")
+st.write(st.session_state)
 
 st.dataframe(df.style.format({
     "production volume": "{:,.0f}",
@@ -42,3 +50,10 @@ st.dataframe(df.style.format({
     }), 
     width="stretch",
     hide_index=True)
+
+potential = potential_demand_service.load_round_demand(
+    game_id=st.session_state.game_id,
+    round_number=df['round'].iloc[-1]
+)
+
+st.dataframe(potential,hide_index=True)
