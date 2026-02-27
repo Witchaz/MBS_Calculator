@@ -40,13 +40,26 @@ class FirestoreRepository:
     # ---------------------------
     # ROUND
     # ---------------------------
+    def save_round(
+        self,
+        game_id: str,
+        round_number: int,
+        market_df: pd.DataFrame,
+        profit_df: pd.DataFrame,
+        production_df: pd.DataFrame,
+        potential_demand_df: pd.DataFrame
+    ):
 
-    def save_round(self, game_id, round_number,
-                   market_df: pd.DataFrame,
-                   profit_df: pd.DataFrame,
-                   production_df:pd.DataFrame,
-                   potential_demand_df:pd.DataFrame
-                   ):
+        # --- Type Safety ---
+        for name, df in {
+            "market_df": market_df,
+            "profit_df": profit_df,
+            "production_df": production_df,
+            "potential_demand_df": potential_demand_df
+            
+        }.items():
+            if not isinstance(df, pd.DataFrame):
+                raise TypeError(f"{name} must be a pandas DataFrame")
 
         round_ref = (
             self.db.collection("mbs_games")
@@ -54,17 +67,22 @@ class FirestoreRepository:
             .collection("rounds")
             .document(f"round_{round_number}")
         )
+
         round_ref.set({
             "round_number": round_number,
             "market_data": market_df.to_dict("records"),
             "net_profit": profit_df.to_dict("records"),
-            "production":production_df,
-            "potential_demand":potential_demand_df,
+            "production": production_df.to_dict("records"),
+            "potential_demand": potential_demand_df.to_dict("records"),
             "updated_at": datetime.utcnow()
         })
+
         self.db.collection("mbs_games").document(game_id).update({
             "updated_at": datetime.utcnow()
         })
+    # ---------------------------
+    # LOAD ROUND (structured)
+    # ---------------------------
 
     def load_round(self, game_id, round_number):
 
@@ -84,39 +102,20 @@ class FirestoreRepository:
 
         df_market = pd.DataFrame(data.get("market_data", []))
         df_profit = pd.DataFrame(data.get("net_profit", []))
+        df_production = pd.DataFrame(data.get("production", []))
+        df_potential = pd.DataFrame(data.get("potential_demand", []))
 
-        return df_market, df_profit
+        return {
+            "market": df_market,
+            "profit": df_profit,
+            "production": df_production,
+            "potential_demand": df_potential
+        }
 
-    def load_all_rounds(self, game_id):
+    # ---------------------------
+    # LOAD RAW
+    # ---------------------------
 
-        rounds_ref = (
-            self.db.collection("mbs_games")
-            .document(game_id)
-            .collection("rounds")
-            .stream()
-        )
-
-        all_market = []
-        all_profit = []
-        
-        for doc in rounds_ref:
-            data = doc.to_dict()
-            all_market.extend(data.get("market_data", []))
-            all_profit.extend(data.get("net_profit", []))
-        
-        df_market = pd.DataFrame(all_market)
-        df_profit = pd.DataFrame(all_profit)
-
-        if df_profit.empty:
-            return df_market
-        
-        return pd.merge(
-            df_market,
-            df_profit,
-            on=["company", "round"],
-            how="left"
-        )
-    
     def load_round_raw(self, game_id, round_number):
 
         doc_ref = (
@@ -132,5 +131,37 @@ class FirestoreRepository:
             return None
 
         return doc.to_dict()
-    
-    
+
+    # ---------------------------
+    # LOAD ALL ROUNDS
+    # ---------------------------
+
+    def load_all_rounds(self, game_id):
+
+        rounds_ref = (
+            self.db.collection("mbs_games")
+            .document(game_id)
+            .collection("rounds")
+            .stream()
+        )
+
+        all_market = []
+        all_profit = []
+
+        for doc in rounds_ref:
+            data = doc.to_dict()
+            all_market.extend(data.get("market_data", []))
+            all_profit.extend(data.get("net_profit", []))
+
+        df_market = pd.DataFrame(all_market)
+        df_profit = pd.DataFrame(all_profit)
+
+        if df_profit.empty:
+            return df_market
+
+        return pd.merge(
+            df_market,
+            df_profit,
+            on=["company", "round"],
+            how="left"
+        )

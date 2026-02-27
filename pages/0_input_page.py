@@ -30,6 +30,8 @@ if "game_id" not in st.session_state:
 
 game_id = st.session_state["game_id"]
 
+if "round_cache" not in st.session_state:
+    st.session_state["round_cache"] = {}
 
 # =====================================================
 # ROUND INPUT
@@ -108,7 +110,6 @@ def save_round():
             production_text=production_text,
             potential_demand_text=potential_demand_text
         )
-
         st.success(f"Round {round_number} saved successfully.")
 
         st.session_state["input_round_number"] = round_number + 1

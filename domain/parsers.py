@@ -116,20 +116,20 @@ def parse_multi_round_table(raw_text: str) -> pd.DataFrame:
 
     return df
 
-def parse_round_production_dataframe(raw_text):
+def parse_round_production_dataframe(raw_text: str) -> pd.DataFrame:
     """
-    รับ DataFrame ที่มี column:
-    Round, Sales volume, Production volume, ...
-    แล้วคืน list ของ round documents (denormalized)
+    Parse production table (1 round or many rounds)
+    คืน DataFrame สำหรับส่งเข้า save_round
     """
-    raw_text = raw_text.replace(",","")
-    round_docs = []
-    df = pd.read_csv(
-    StringIO(raw_text),
-    sep="\t")
-    for _, row in df.iterrows():
 
-        round_doc = {
+    raw_text = raw_text.replace(",", "")
+    df_raw = pd.read_csv(StringIO(raw_text), sep="\t")
+
+    records = []
+
+    for _, row in df_raw.iterrows():
+
+        record = {
             "round_number": int(row["Round"]),
             "sales_volume": int(row["Sales volume"]),
             "production_volume": int(row["Production volume"]),
@@ -138,38 +138,31 @@ def parse_round_production_dataframe(raw_text):
             "finished_goods_inventory_total": int(
                 row["Finished goods inventory(Total)"]
             ),
-            "fg_inventory": {
-                "1": int(row["Market 1"]),
-                "2": int(row["Market 2"]),
-                "3": int(row["Market 3"]),
-                "4": int(row["Market 4"]),
-            }
+            "fg_inventory_1": int(row["Market 1"]),
+            "fg_inventory_2": int(row["Market 2"]),
+            "fg_inventory_3": int(row["Market 3"]),
+            "fg_inventory_4": int(row["Market 4"]),
         }
 
-        round_docs.append(round_doc)
-    return round_docs
+        records.append(record)
 
-import pandas as pd
-from io import StringIO
-import re
+    return pd.DataFrame(records)
 
-
-def parse_round_potential_demand(raw_text: str):
+def parse_round_potential_demand(raw_text: str) -> pd.DataFrame:
     """
     Parse ตาราง Market Demand (1 round)
-    คืน list สำหรับเก็บใน field: potential_demand
+    คืน DataFrame สำหรับ save_round
     """
 
     raw_text = raw_text.replace(",", "")
-    df = pd.read_csv(StringIO(raw_text), sep="\t")
+    df_raw = pd.read_csv(StringIO(raw_text), sep="\t")
 
-    potential_demand = []
+    records = []
 
-    for _, row in df.iterrows():
+    for _, row in df_raw.iterrows():
 
         market_label = str(row["Market"]).strip()
 
-        # skip total row
         if market_label.lower() == "total":
             continue
 
@@ -179,7 +172,7 @@ def parse_round_potential_demand(raw_text: str):
 
         market_id = match.group()
 
-        potential_demand.append({
+        records.append({
             "market_id": market_id,
             "potential_demand": int(row["Potential demand"]),
             "actual_sales_volume": int(row["Sales volume"]),
@@ -187,4 +180,4 @@ def parse_round_potential_demand(raw_text: str):
             "finished_goods_inventory": int(row["Finished goods inventory"]),
         })
 
-    return potential_demand
+    return pd.DataFrame(records)
