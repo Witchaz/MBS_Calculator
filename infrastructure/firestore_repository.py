@@ -162,6 +162,35 @@ class FirestoreRepository:
         return pd.merge(
             df_market,
             df_profit,
-            on=["company", "round"],
+            on=["company", "round_number"],
             how="left"
         )
+    
+    def get_round_numbers(self, game_id: str):
+
+        rounds_ref = (
+            self.db.collection("mbs_games")
+            .document(game_id)
+            .collection("rounds")
+        )
+
+        docs = rounds_ref.stream()
+
+        round_numbers = []
+
+        for doc in docs:
+            data = doc.to_dict()
+            if "round_number" in data:
+                round_numbers.append(data["round_number"])
+
+        return sorted(round_numbers)
+
+    def get_all_rounds(self, game_id: str):
+        rounds_ref = (
+            self.db.collection("mbs_games")
+            .document(game_id)
+            .collection("rounds")
+            .stream()
+        )
+
+        return [doc.to_dict() for doc in rounds_ref]

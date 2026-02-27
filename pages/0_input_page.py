@@ -30,8 +30,6 @@ if "game_id" not in st.session_state:
 
 game_id = st.session_state["game_id"]
 
-if "round_cache" not in st.session_state:
-    st.session_state["round_cache"] = {}
 
 # =====================================================
 # ROUND INPUT
@@ -100,6 +98,7 @@ def save_round():
     net_profit_text = st.session_state.get("input_net_profit", "").strip()
     production_text = st.session_state.get("input_production","").strip()
     potential_demand_text = st.session_state.get("input_potential_demand","").strip()
+    
 
     try:
         round_service.save_round(
