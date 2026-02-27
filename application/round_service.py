@@ -1,5 +1,5 @@
 import pandas as pd
-from domain.parsers import parse_market_text, parse_net_profit_text, parse_round_production_dataframe
+from domain.parsers import parse_market_text, parse_net_profit_text, parse_round_production_dataframe, parse_round_potential_demand
 from domain.feature_engineering import prepare_features
 
 class RoundService:
@@ -13,7 +13,8 @@ class RoundService:
         round_number,
         market_blocks: dict,
         net_profit_text: str,
-        production_text: str
+        production_text: str,
+        potential_demand_text : str
     ):
         round_dfs = []
 
@@ -45,10 +46,16 @@ class RoundService:
             df_production = parse_round_production_dataframe(
                 production_text
             )
+
+        df_potential_demand = pd.DataFrame()
+        if potential_demand_text:
+            df_potential_demand = parse_round_potential_demand(potential_demand_text)
+        
         self.repo.save_round(
             game_id,
             round_number,
             df_market,
             df_profit,
-            df_production
+            df_production,
+            df_potential_demand
         )

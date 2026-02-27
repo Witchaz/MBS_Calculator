@@ -28,18 +28,18 @@ class InventoryPlanningService:
 
         production_list = data.get("production", [])
         for i in production_list:
-            market_sales = i.get("market_sales", {})
+            market_sales = i.get("fg_inventory", {})
             rows.append({
                 "round": i.get("round_number",0),
-                "production_volume": i.get("production_volume", 0),
+                "production volume": i.get("production_volume", 0),
                 "capacity": i.get("next_production_capacity", 0),
-                "raw_material_inventory": i.get("raw_material_inventory", 0),
-                "finished_goods_inventory_total": i.get(
+                "raw material inventory": i.get("raw_material_inventory", 0),
+                "finished goods inventory total": i.get(
                     "finished_goods_inventory_total", 0),
-                "market_1_finished_good":market_sales.get("1", 0),
-                "market_2_finished_good":market_sales.get("2", 0),
-                "market_3_finished_good":market_sales.get("3", 0),
-                "market_4_finished_good":market_sales.get("4", 0)
+                "FG market 1":market_sales.get("1", 0),
+                "FG market 2":market_sales.get("2", 0),
+                "FG market 3":market_sales.get("3", 0),
+                "FG market 4":market_sales.get("4", 0)
             })
 
         df = pd.DataFrame(rows).sort_values("round")
@@ -56,9 +56,9 @@ class InventoryPlanningService:
 
         row = df_round.iloc[0]
         return {
-            "fg_inventory": float(row["finished_goods_inventory_total"]),
-            "rm_inventory": float(row["raw_material_inventory"]),
-            "production": float(row["production_volume"]),
+            "fg_inventory": float(row["finished goods inventory total"]),
+            "rm_inventory": float(row["raw material inventory"]),
+            "production": float(row["production volume"]),
             "capacity": float(row["capacity"]),
         }
 

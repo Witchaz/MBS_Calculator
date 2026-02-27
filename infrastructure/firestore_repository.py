@@ -44,7 +44,9 @@ class FirestoreRepository:
     def save_round(self, game_id, round_number,
                    market_df: pd.DataFrame,
                    profit_df: pd.DataFrame,
-                   production_df:pd.DataFrame):
+                   production_df:pd.DataFrame,
+                   potential_demand_df:pd.DataFrame
+                   ):
 
         round_ref = (
             self.db.collection("mbs_games")
@@ -57,6 +59,7 @@ class FirestoreRepository:
             "market_data": market_df.to_dict("records"),
             "net_profit": profit_df.to_dict("records"),
             "production":production_df,
+            "potential_demand":potential_demand_df,
             "updated_at": datetime.utcnow()
         })
         self.db.collection("mbs_games").document(game_id).update({

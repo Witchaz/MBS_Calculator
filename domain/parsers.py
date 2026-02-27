@@ -148,3 +148,43 @@ def parse_round_production_dataframe(raw_text):
 
         round_docs.append(round_doc)
     return round_docs
+
+import pandas as pd
+from io import StringIO
+import re
+
+
+def parse_round_potential_demand(raw_text: str):
+    """
+    Parse ตาราง Market Demand (1 round)
+    คืน list สำหรับเก็บใน field: potential_demand
+    """
+
+    raw_text = raw_text.replace(",", "")
+    df = pd.read_csv(StringIO(raw_text), sep="\t")
+
+    potential_demand = []
+
+    for _, row in df.iterrows():
+
+        market_label = str(row["Market"]).strip()
+
+        # skip total row
+        if market_label.lower() == "total":
+            continue
+
+        match = re.search(r"\d+", market_label)
+        if not match:
+            continue
+
+        market_id = match.group()
+
+        potential_demand.append({
+            "market_id": market_id,
+            "potential_demand": int(row["Potential demand"]),
+            "actual_sales_volume": int(row["Sales volume"]),
+            "market_share_pct": float(row["Market share(%)"]),
+            "finished_goods_inventory": int(row["Finished goods inventory"]),
+        })
+
+    return potential_demand

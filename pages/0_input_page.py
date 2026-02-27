@@ -65,17 +65,20 @@ st.header("📊 Market Sale Status")
 raw_market_text = st.text_area(
     "Paste All Market Data",
     key="input_all_markets",
-    height=400
+    height=150
 )
 
 # =====================================================
 # OTHER INPUTS
 # =====================================================
 st.header("💰 Net Profit")
-st.text_area("Paste Net Profit", key="input_net_profit", height=200)
+st.text_area("Paste Net Profit", key="input_net_profit", height=150)
 
 st.header("Production/Inventory")
-st.text_area("Paste Production/Inventory", key="input_production", height=200)
+st.text_area("Paste Production/Inventory", key="input_production", height=150)
+
+st.header("potential demand")
+st.text_area("Paste Potential Demand", key="input_potential_demand",height=150)
 
 # =====================================================
 # SAVE LOGIC (CLEAN)
@@ -86,22 +89,24 @@ def save_round():
         st.error("Net profit is empty")
     if st.session_state.get("input_production") == "":
         st.error("Production/Inventory is empty")
+    if st.session_state.get("input_potential_demand") == "":
+        st.error("potential demand is empty")
 
     raw_text = st.session_state.get("input_all_markets", "").strip()
     market_blocks = split_markets(raw_text)
 
-    net_profit_text = st.session_state.get(
-        "input_net_profit", ""
-    ).strip()
-
+    net_profit_text = st.session_state.get("input_net_profit", "").strip()
     production_text = st.session_state.get("input_production","").strip()
+    potential_demand_text = st.session_state.get("input_potential_demand","").strip()
+
     try:
         round_service.save_round(
             game_id=game_id,
             round_number=round_number,
             market_blocks=market_blocks,
             net_profit_text=net_profit_text,
-            production_text=production_text
+            production_text=production_text,
+            potential_demand_text=potential_demand_text
         )
 
         st.success(f"Round {round_number} saved successfully.")
