@@ -29,7 +29,7 @@ if "game_id" not in st.session_state:
     st.stop()
 
 game_id = st.session_state["game_id"]
-
+st.session_state["input_round_number"] = round_service.get_round_numbers(game_id)[-1]
 
 # =====================================================
 # ROUND INPUT
@@ -39,7 +39,7 @@ round_number = st.number_input(
     min_value=1,
     step=1,
     key="input_round_number",
-    value=st.session_state.get("input_round_number", 1)
+    value=1
 )
 
 
