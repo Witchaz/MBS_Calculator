@@ -122,3 +122,10 @@ class RoundService:
             for r in rounds
             if "round_number" in r
         }
+    
+    def get_season_factor(self, game_id: str, season: str) -> float:
+        seasonal_map = self.repo.get_seasonal_indicator(game_id)
+        return seasonal_map.get(season, 100) / 100
+    
+    def get_seasonal_indicator(self, game_id: str) -> dict:
+        return self.repo.get_seasonal_indicator(game_id)

@@ -194,3 +194,21 @@ class FirestoreRepository:
         )
 
         return [doc.to_dict() for doc in rounds_ref]
+
+    
+    def get_seasonal_indicator(self, game_id: str) -> dict:
+        game = self.get_game(game_id)
+        return game.get("seasonal_indicator", {})
+    
+    def get_game(self, game_id: str) -> dict:
+        doc = (
+            self.db
+            .collection("mbs_games")
+            .document(game_id)
+            .get()
+        )
+
+        if not doc.exists:
+            return {}
+
+        return doc.to_dict()

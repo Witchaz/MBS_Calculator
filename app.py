@@ -21,7 +21,6 @@ def get_round_service():
 
 round_service = get_round_service()
 
-
 # =====================================================
 # DATASTORE INIT
 # =====================================================
@@ -93,6 +92,13 @@ if "game_id" in st.session_state:
         st.session_state["rounds_data"] = {
             r["round_number"]: r
             for r in raw_rounds
+        }
+    # 🔥 โหลด seasonal จาก service layer
+    seasonal_map = round_service.get_seasonal_indicator(game_id)
+
+    st.session_state["seasonal_indicator"] = seasonal_map
+    st.session_state["seasonal_factor"] = {
+        k: v / 100 for k, v in seasonal_map.items()
         }
 
 else:

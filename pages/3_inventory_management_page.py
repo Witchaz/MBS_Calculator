@@ -6,6 +6,7 @@ from infrastructure.firestore_repository import FirestoreRepository
 from application.round_service import RoundService
 
 
+
 def normalize_by_round(records: list, round_key: str = "round_number"):
     """
     Convert flat list of dicts into dict keyed by round_number.
@@ -72,14 +73,13 @@ rounds_data = st.session_state["rounds_data"]
 if not rounds_data:
     st.warning("No data found in this game.")
     st.stop()
-
-st.write(st.session_state)
+with st.expander("debug"):
+    st.write(st.session_state)
 
 # =====================================================
 # UI
 # =====================================================
 round_numbers = sorted(rounds_data.keys())
-round_tabs = st.tabs([f"Round {r}" for r in round_numbers])
 
 ordered_columns = [
     "round_number",
