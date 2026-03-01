@@ -28,9 +28,16 @@ if "game_id" not in st.session_state:
     st.error("Please select a game from Home page first.")
     st.stop()
 
+    
 game_id = st.session_state["game_id"]
 round_numbers = round_service.get_round_numbers(game_id)
-st.session_state["input_round_number"] = round_numbers[-1] if round_numbers else 1
+
+# ถ้า game_id เปลี่ยน → reset
+if st.session_state.get("current_game_id") != game_id:
+    st.session_state["input_round_number"] = (
+        round_numbers[-1] if round_numbers else 1
+    )
+    st.session_state["current_game_id"] = game_id
 
 # =====================================================
 # ROUND INPUT
