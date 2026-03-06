@@ -50,7 +50,7 @@ round_number = st.number_input(
     min_value=1,
     step=1,
     key="input_round_number",
-    value=round_numbers[-1]
+    value=round_numbers[-1] + 1
 )
 
 
