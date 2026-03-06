@@ -1,5 +1,8 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
+import altair as alt
+
 
 from infrastructure.firebase_client import init_firebase
 from infrastructure.firestore_repository import FirestoreRepository
@@ -275,3 +278,104 @@ for tab, rnd in zip(round_tabs, round_numbers):
                         st.subheader("Top 3 Companies")
                         for index, row in top_companies.iterrows():
                             st.write(f"{row['rank']}: {row['company']} - {row[metric]:,.2f}")
+
+
+# Initialize lists to store all rounds' metric data
+metric_results = {
+    metric: {
+        "rounds": [],
+        "top_company": [],
+        "our_company": []
+    }
+    for metric in metrics
+}
+
+# ================= MAIN LOOP =================
+for tab, rnd in zip(round_tabs, round_numbers):
+
+    with tab:
+        round_doc = rounds_data[rnd]
+
+        if "market_data" not in round_doc:
+            st.warning("No market data.")
+            continue
+
+        df_round = pd.DataFrame(round_doc["market_data"])
+
+        # ---- inject net profit ----
+        if "net_profit" in round_doc:
+            df_profit = pd.DataFrame(round_doc["net_profit"])
+            if not df_profit.empty:
+                df_round = df_round.merge(df_profit, on="company", how="left")
+
+        if "price" in df_round.columns and "sales_volume" in df_round.columns:
+            df_round["revenue"] = df_round["price"] * df_round["sales_volume"]
+
+        if df_round.empty:
+            st.warning("Empty dataset.")
+            continue
+
+        # ===== LOOP PER METRIC =====
+        for metric in metrics:
+
+            if metric not in df_round.columns:
+                continue
+
+            df_metric = performance_service.compute_metric_table(df_round, metric)
+
+            if df_metric.empty:
+                continue
+
+            # top company
+            top_company = df_metric.sort_values(by=metric, ascending=False).iloc[0]
+
+            top_value = top_company[metric]
+
+            our_row = df_metric[df_metric["company"] == company_name]
+            our_value = np.nan if our_row.empty else our_row.iloc[0][metric]
+
+            # save per metric
+            metric_results[metric]["rounds"].append(rnd)
+            metric_results[metric]["top_company"].append(top_value)
+            metric_results[metric]["our_company"].append(our_value)
+            
+            
+for metric in metrics:
+
+    data = metric_results[metric]
+
+    if len(data["rounds"]) == 0:
+        continue
+
+    line_df = pd.DataFrame({
+    "Round": data["rounds"],
+    "Top Company": data["top_company"],
+    "Our Company": data["our_company"]
+    })
+
+    line_df.set_index("Round", inplace=True)
+
+    # interpolate ให้เส้น smooth
+    line_df.interpolate(method="linear", inplace=True)
+
+
+    plot_df = line_df.reset_index().melt(
+        id_vars="Round",
+        var_name="Company",
+        value_name="Value"
+    )
+
+    chart = alt.Chart(plot_df).mark_line(point=True).encode(
+        x=alt.X("Round:Q", title="Round"),
+        y=alt.Y(
+            "Value:Q",
+            title=metric,
+            scale=alt.Scale(zero=False)  # auto-scale ตามช่วงข้อมูลจริง
+        ),
+        color=alt.Color("Company:N", title="Company")
+    ).properties(
+        title=f"{metric} Trend"
+    )
+
+    st.altair_chart(chart, use_container_width=True)
+    
