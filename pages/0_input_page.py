@@ -42,6 +42,9 @@ if st.session_state.get("current_game_id") != game_id:
 # =====================================================
 # ROUND INPUT
 # =====================================================
+if len(round_numbers) == 0:
+    round_numbers = [1]
+
 round_number = st.number_input(
     "Round number",
     min_value=1,
