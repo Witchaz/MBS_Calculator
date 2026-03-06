@@ -223,29 +223,25 @@ for tab, rnd in zip(round_tabs, round_numbers):
                     }),
                     width="stretch"
                 )
-
                 # ================= MARKET METRICS =================
                 for metric in metrics:
-
                     if metric not in df_market.columns:
                         continue
 
                     with st.expander(metric):
-
-                        df_metric = performance_service.compute_metric_table(
-                            df_market,
-                            metric
-                        )
+                        df_metric = performance_service.compute_metric_table(df_market, metric)
 
                         if df_metric.empty:
                             continue
 
-                        leader = df_metric.iloc[0]
+                        # Sort by the metric value and get the top 3
+                        top_companies = df_metric.sort_values(by=metric, ascending=False).head(3)
+
+                        # Fetch leader and market average
+                        leader = top_companies.iloc[0]
                         market_avg = df_metric[metric].mean()
 
-                        our_row = df_metric[
-                            df_metric["company"] == company_name
-                        ]
+                        our_row = df_metric[df_metric["company"] == company_name]
 
                         if our_row.empty:
                             continue
@@ -264,6 +260,7 @@ for tab, rnd in zip(round_tabs, round_numbers):
                             abs(market_avg) * 100
                         ) if market_avg != 0 else 0
 
+                        # Display leader and our metrics
                         k1, k2, k3, k4 = st.columns(4)
                         k1.metric("Leader", leader["company"])
                         k2.metric("Market Avg", f"{market_avg:,.2f}")
@@ -273,3 +270,8 @@ for tab, rnd in zip(round_tabs, round_numbers):
                         c1, c2 = st.columns(2)
                         c1.metric("Vs Leader", f"{pct_vs_leader:+.2f}%")
                         c2.metric("Vs Avg", f"{pct_vs_avg:+.2f}%")
+
+                        # Display top 3 companies
+                        st.subheader("Top 3 Companies")
+                        for index, row in top_companies.iterrows():
+                            st.write(f"{row['rank']}: {row['company']} - {row[metric]:,.2f}")
