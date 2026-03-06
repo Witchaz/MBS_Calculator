@@ -10,6 +10,27 @@ from application.performance_service import PerformanceService
 from application.round_service import RoundService
 
 
+def sales_weighted_stats(df, metric, weight_col="sales_volume"):
+    if metric not in df.columns or weight_col not in df.columns:
+        return None, None
+
+    values = df[metric].astype(float)
+    weights = df[weight_col].astype(float)
+
+    if weights.sum() == 0:
+        return None, None
+
+    weighted_mean = np.average(values, weights=weights)
+
+    weighted_var = np.average(
+        (values - weighted_mean) ** 2,
+        weights=weights
+    )
+
+    weighted_sd = np.sqrt(weighted_var)
+
+    return weighted_mean, weighted_sd
+
 # =====================================================
 # INIT SERVICE (Singleton per session)
 # =====================================================
@@ -158,6 +179,32 @@ for tab, rnd in zip(round_tabs, round_numbers):
 
                 leader = df_metric.iloc[0]
                 market_avg = df_metric[metric].mean()
+                # ===== Sales-weighted mean =====
+                sales_weighted_mean = None
+
+                if "sales_volume" in df_summary.columns:
+                    total_sales = df_summary["sales_volume"].sum()
+
+                    if total_sales > 0:
+                        sales_weighted_mean = (
+                            (df_summary[metric] * df_summary["sales_volume"]).sum()
+                            / total_sales
+                        )
+
+                
+                # ===== Sales-weighted SD =====
+                sales_weighted_sd = None
+
+                if sales_weighted_mean is not None:
+                    variance = (
+                        (
+                            (df_summary[metric] - sales_weighted_mean) ** 2
+                            * df_summary["sales_volume"]
+                        ).sum()
+                        / total_sales
+                    )
+
+                    sales_weighted_sd = np.sqrt(variance)
 
                 our_row = df_metric[
                     df_metric["company"] == company_name
@@ -170,6 +217,7 @@ for tab, rnd in zip(round_tabs, round_numbers):
                 our_value = our_row[metric]
                 our_rank = int(our_row["rank"])
                 market_total = df_metric[metric].sum()
+
 
                 pct_vs_leader = (
                     (our_value - leader[metric]) /
@@ -263,6 +311,26 @@ for tab, rnd in zip(round_tabs, round_numbers):
                             abs(market_avg) * 100
                         ) if market_avg != 0 else 0
 
+                        if "sales_volume" in df_market.columns:
+                            
+                            total_sales = df_market["sales_volume"].sum()
+                            if total_sales > 0:
+                                sales_weighted_mean = (
+                                    (df_market[metric] * df_market["sales_volume"]).sum()
+                                    / total_sales
+                                )
+
+                        
+                        variance = (
+                            (
+                                (df_market[metric] - sales_weighted_mean) ** 2
+                                * df_market["sales_volume"]
+                            ).sum()
+                            / df_market["sales_volume"].sum()
+                        )
+
+                        sales_weighted_sd = np.sqrt(variance)
+                        
                         # Display leader and our metrics
                         k1, k2, k3, k4 = st.columns(4)
                         k1.metric("Leader", leader["company"])
@@ -278,6 +346,12 @@ for tab, rnd in zip(round_tabs, round_numbers):
                         st.subheader("Top 3 Companies")
                         for index, row in top_companies.iterrows():
                             st.write(f"{row['rank']}: {row['company']} - {row[metric]:,.2f}")
+                        c3, c4 = st.columns(2)
+
+                        if sales_weighted_mean is not None:
+                            c3.metric("Sales Weighted Avg", f"{sales_weighted_mean:,.2f}")
+                            c4.metric("Sales Weighted Sd", f"{sales_weighted_sd:,.2f}")
+
 
 
 # Initialize lists to store all rounds' metric data
@@ -377,5 +451,5 @@ for metric in metrics:
         title=f"{metric} Trend"
     )
 
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart, width='stretch')
     
