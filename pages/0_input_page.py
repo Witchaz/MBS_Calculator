@@ -47,7 +47,7 @@ round_number = st.number_input(
     min_value=1,
     step=1,
     key="input_round_number",
-    value=1
+    value=round_numbers[-1]
 )
 
 
@@ -117,6 +117,13 @@ def save_round():
             production_text=production_text,
             potential_demand_text=potential_demand_text
         )
+        raw_rounds = round_service.get_all_rounds(game_id)
+
+        st.session_state["rounds_data"] = {
+            r["round_number"]: r
+            for r in raw_rounds
+        }
+        
         st.success(f"Round {round_number} saved successfully.")
 
         st.session_state["input_round_number"] = round_number + 1
